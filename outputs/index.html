@@ -7,75 +7,84 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <main class="app-shell">
-    <section class="workspace">
-      <aside class="sidebar">
-        <div class="brand">
-          <div class="brand-mark">K</div>
-          <div>
-            <h1>KOL Brief 审核助手</h1>
-            <p>脚本、改稿、初稿、caption 一次性核对</p>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <p class="kicker">KOL REVIEW DESK</p>
+        <h1>KOL Brief 审核助手</h1>
+      </div>
+      <div class="top-actions">
+        <button id="sampleBtn" type="button">载入示例</button>
+        <button id="clearBtn" type="button">清空</button>
+      </div>
+    </header>
+
+    <section class="mode-strip" aria-label="审核类型">
+      <button class="mode-card active" type="button" data-mode="scriptBrief">
+        <strong>脚本对 Brief</strong>
+        <span>脚本是否拍到客户要点</span>
+      </button>
+      <button class="mode-card" type="button" data-mode="scriptFeedback">
+        <strong>脚本改稿</strong>
+        <span>二稿是否按反馈修改</span>
+      </button>
+      <button class="mode-card" type="button" data-mode="draftScript">
+        <strong>视频初稿</strong>
+        <span>是否按确认脚本拍摄</span>
+      </button>
+      <button class="mode-card" type="button" data-mode="revisionFeedback">
+        <strong>视频修改稿</strong>
+        <span>是否解决客户意见</span>
+      </button>
+      <button class="mode-card" type="button" data-mode="captionBrief">
+        <strong>Caption</strong>
+        <span>是否符合发布要求</span>
+      </button>
+    </section>
+
+    <section class="layout">
+      <section class="workbench">
+        <article class="brief-card">
+          <div class="section-head">
+            <div>
+              <h2>Brief</h2>
+              <p>客户 brief、caption 要求、必提卖点、禁用词都放这里。</p>
+            </div>
+            <label class="file-button">
+              上传文件
+              <input id="briefFile" type="file" accept=".txt,.md,.csv,.json,.srt,.vtt">
+            </label>
           </div>
+          <textarea id="briefText" placeholder="粘贴 brief，或上传 txt / md / csv / srt / vtt 文件..."></textarea>
+          <p id="fileStatus" class="file-status"></p>
+        </article>
+
+        <div class="rounds-head">
+          <div>
+            <h2>脚本轮次</h2>
+            <p>默认是“脚本初稿 + 一轮脚本反馈 + 脚本二稿”，也可以继续添加多轮。</p>
+          </div>
+          <button id="addRoundBtn" type="button">添加一轮</button>
         </div>
 
-        <label class="field">
-          <span>审核类型</span>
-          <select id="auditMode">
-            <option value="scriptBrief">博主脚本是否覆盖 brief 要点</option>
-            <option value="scriptFeedback">脚本是否按客户意见修改</option>
-            <option value="draftScript">初稿是否按确认脚本拍摄</option>
-            <option value="revisionFeedback">修改稿是否按客户意见修改</option>
-            <option value="captionBrief">发布 caption 是否满足客户要求</option>
-          </select>
-        </label>
+        <div id="rounds" class="rounds"></div>
 
-        <div class="quick-load">
-          <button id="sampleBtn" type="button">载入示例</button>
-          <button id="clearBtn" type="button">清空</button>
-        </div>
-
-        <div class="hint">
-          <strong>使用方式</strong>
-          <p>把客户 brief、确认脚本、客户意见、视频转写或 caption 粘贴进对应区域，再点击审核。</p>
-        </div>
-      </aside>
-
-      <section class="inputs">
-        <div class="input-grid">
-          <label class="panel">
-            <span>客户 brief / caption 要求</span>
-            <textarea id="briefText" placeholder="粘贴客户 brief、必提卖点、禁用词、镜头要求、caption 要求..."></textarea>
-          </label>
-          <label class="panel">
-            <span>确认脚本 / 博主脚本</span>
-            <textarea id="scriptText" placeholder="粘贴博主脚本或已确认脚本..."></textarea>
-          </label>
-          <label class="panel">
-            <span>客户意见 / 修改要求</span>
-            <textarea id="feedbackText" placeholder="粘贴客户 comments，例如：补充价格机制、删除夸张功效、开头需露出品牌..."></textarea>
-          </label>
-          <label class="panel">
-            <span>待审核内容</span>
-            <textarea id="targetText" placeholder="粘贴初稿转写、修改稿转写、最终 caption 或要审核的脚本..."></textarea>
-          </label>
-        </div>
-
-        <div class="actions">
+        <div class="audit-actions">
           <button id="auditBtn" class="primary" type="button">开始审核</button>
           <button id="copyBtn" type="button">复制审核结论</button>
         </div>
       </section>
 
-      <section class="results">
+      <aside class="results">
         <div class="score-card">
           <div>
-            <p class="eyebrow">审核结论</p>
+            <p class="kicker">审核结论</p>
             <h2 id="verdict">待审核</h2>
           </div>
           <div class="score-ring" id="scoreRing">--</div>
         </div>
 
-        <div class="summary" id="summary">
+        <div id="summary" class="summary">
           录入资料后点击“开始审核”，这里会显示覆盖率、缺失要点、疑似未修改项和建议反馈话术。
         </div>
 
@@ -88,7 +97,7 @@
           <h3>可复制反馈</h3>
           <textarea id="feedbackOutput" readonly placeholder="审核后自动生成给博主/客户的反馈文案"></textarea>
         </div>
-      </section>
+      </aside>
     </section>
   </main>
   <script src="./app.js"></script>
