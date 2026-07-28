@@ -15,59 +15,34 @@
       </div>
       <div class="top-actions">
         <button id="sampleBtn" type="button">载入示例</button>
-        <button id="clearBtn" type="button">清空</button>
+        <button id="clearBtn" type="button">清空当前项目</button>
       </div>
     </header>
 
-    <section class="mode-strip" aria-label="审核类型">
-      <button class="mode-card active" type="button" data-mode="scriptBrief">
-        <strong>脚本对 Brief</strong>
-        <span>脚本是否拍到客户要点</span>
-      </button>
-      <button class="mode-card" type="button" data-mode="scriptFeedback">
-        <strong>脚本改稿</strong>
-        <span>二稿是否按反馈修改</span>
-      </button>
-      <button class="mode-card" type="button" data-mode="draftScript">
-        <strong>视频初稿</strong>
-        <span>是否按确认脚本拍摄</span>
-      </button>
-      <button class="mode-card" type="button" data-mode="revisionFeedback">
-        <strong>视频修改稿</strong>
-        <span>是否解决客户意见</span>
-      </button>
-      <button class="mode-card" type="button" data-mode="captionBrief">
-        <strong>Caption</strong>
-        <span>是否符合发布要求</span>
-      </button>
-    </section>
-
-    <section class="layout">
-      <section class="workbench">
-        <article class="brief-card">
-          <div class="section-head">
-            <div>
-              <h2>Brief</h2>
-              <p>客户 brief、caption 要求、必提卖点、禁用词都放这里。</p>
-            </div>
-            <label class="file-button">
-              上传文件
-              <input id="briefFile" type="file" accept=".txt,.md,.csv,.json,.srt,.vtt">
-            </label>
-          </div>
-          <textarea id="briefText" placeholder="粘贴 brief，或上传 txt / md / csv / srt / vtt 文件..."></textarea>
-          <p id="fileStatus" class="file-status"></p>
-        </article>
-
-        <div class="rounds-head">
+    <section class="shell">
+      <aside class="project-panel">
+        <div class="panel-head">
           <div>
-            <h2>脚本轮次</h2>
-            <p>默认是“脚本初稿 + 一轮脚本反馈 + 脚本二稿”，也可以继续添加多轮。</p>
+            <h2>项目</h2>
+            <p>同一项目共享一份 brief，不同博主共用。</p>
           </div>
-          <button id="addRoundBtn" type="button">添加一轮</button>
+          <button id="addProjectBtn" type="button">新增项目</button>
+        </div>
+        <div id="projectList" class="project-list"></div>
+      </aside>
+
+      <section class="workspace">
+        <div class="section-tabs" role="tablist" aria-label="审核模块">
+          <button class="section-tab active" data-section="brief" type="button">Brief</button>
+          <button class="section-tab" data-section="script" type="button">Script</button>
+          <button class="section-tab" data-section="draft" type="button">Draft</button>
+          <button class="section-tab" data-section="post" type="button">Post</button>
         </div>
 
-        <div id="rounds" class="rounds"></div>
+        <article id="briefSection" class="section-card"></article>
+        <article id="scriptSection" class="section-card hidden"></article>
+        <article id="draftSection" class="section-card hidden"></article>
+        <article id="postSection" class="section-card hidden"></article>
 
         <div class="audit-actions">
           <button id="auditBtn" class="primary" type="button">开始审核</button>
@@ -86,6 +61,13 @@
 
         <div id="summary" class="summary">
           录入资料后点击“开始审核”，这里会显示覆盖率、缺失要点、疑似未修改项和建议反馈话术。
+        </div>
+
+        <div class="result-controls">
+          <button class="filter-btn active" data-filter="all" type="button">全部</button>
+          <button class="filter-btn" data-filter="updated" type="button">已修改</button>
+          <button class="filter-btn" data-filter="maybe" type="button">疑似缺失</button>
+          <button class="filter-btn" data-filter="missing" type="button">未修改</button>
         </div>
 
         <div class="result-block">
