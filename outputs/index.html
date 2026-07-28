@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KOL Brief 审核助手</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="workspace">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">K</div>
+          <div>
+            <h1>KOL Brief 审核助手</h1>
+            <p>脚本、改稿、初稿、caption 一次性核对</p>
+          </div>
+        </div>
+
+        <label class="field">
+          <span>审核类型</span>
+          <select id="auditMode">
+            <option value="scriptBrief">博主脚本是否覆盖 brief 要点</option>
+            <option value="scriptFeedback">脚本是否按客户意见修改</option>
+            <option value="draftScript">初稿是否按确认脚本拍摄</option>
+            <option value="revisionFeedback">修改稿是否按客户意见修改</option>
+            <option value="captionBrief">发布 caption 是否满足客户要求</option>
+          </select>
+        </label>
+
+        <div class="quick-load">
+          <button id="sampleBtn" type="button">载入示例</button>
+          <button id="clearBtn" type="button">清空</button>
+        </div>
+
+        <div class="hint">
+          <strong>使用方式</strong>
+          <p>把客户 brief、确认脚本、客户意见、视频转写或 caption 粘贴进对应区域，再点击审核。</p>
+        </div>
+      </aside>
+
+      <section class="inputs">
+        <div class="input-grid">
+          <label class="panel">
+            <span>客户 brief / caption 要求</span>
+            <textarea id="briefText" placeholder="粘贴客户 brief、必提卖点、禁用词、镜头要求、caption 要求..."></textarea>
+          </label>
+          <label class="panel">
+            <span>确认脚本 / 博主脚本</span>
+            <textarea id="scriptText" placeholder="粘贴博主脚本或已确认脚本..."></textarea>
+          </label>
+          <label class="panel">
+            <span>客户意见 / 修改要求</span>
+            <textarea id="feedbackText" placeholder="粘贴客户 comments，例如：补充价格机制、删除夸张功效、开头需露出品牌..."></textarea>
+          </label>
+          <label class="panel">
+            <span>待审核内容</span>
+            <textarea id="targetText" placeholder="粘贴初稿转写、修改稿转写、最终 caption 或要审核的脚本..."></textarea>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="auditBtn" class="primary" type="button">开始审核</button>
+          <button id="copyBtn" type="button">复制审核结论</button>
+        </div>
+      </section>
+
+      <section class="results">
+        <div class="score-card">
+          <div>
+            <p class="eyebrow">审核结论</p>
+            <h2 id="verdict">待审核</h2>
+          </div>
+          <div class="score-ring" id="scoreRing">--</div>
+        </div>
+
+        <div class="summary" id="summary">
+          录入资料后点击“开始审核”，这里会显示覆盖率、缺失要点、疑似未修改项和建议反馈话术。
+        </div>
+
+        <div class="result-block">
+          <h3>逐项检查</h3>
+          <div id="checks" class="checks"></div>
+        </div>
+
+        <div class="result-block">
+          <h3>可复制反馈</h3>
+          <textarea id="feedbackOutput" readonly placeholder="审核后自动生成给博主/客户的反馈文案"></textarea>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>
