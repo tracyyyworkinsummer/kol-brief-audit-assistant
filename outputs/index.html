@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KOL Brief 审核助手</title>
+  <title>KOL内容审核助手</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
     <header class="topbar">
       <div>
         <p class="kicker">KOL REVIEW DESK</p>
-        <h1>KOL Brief 审核助手</h1>
+        <h1>KOL内容审核助手</h1>
       </div>
       <div class="top-actions">
         <button id="sampleBtn" type="button">载入示例</button>
@@ -20,47 +20,62 @@
     </header>
 
     <section class="shell">
-      <aside class="project-panel">
-        <div class="panel-head">
-          <div>
-            <h2>项目</h2>
-            <p>同一项目共享一份 Brief。</p>
-          </div>
-          <button id="addProjectBtn" type="button">新增</button>
-        </div>
-        <div id="projectList" class="stack"></div>
+      <aside class="sidebar">
+        <nav class="side-nav">
+          <button class="side-tab active" data-view="overview" type="button">项目总览</button>
+          <button class="side-tab" data-view="project" type="button">具体项目</button>
+        </nav>
 
-        <div class="panel-head creator-head">
-          <div>
-            <h2>博主</h2>
-            <p>同项目下可管理多位博主。</p>
+        <div class="side-block">
+          <div class="side-head">
+            <h2>当前项目</h2>
+            <button id="addProjectBtn" type="button">新增</button>
           </div>
-          <button id="addCreatorBtn" type="button">新增</button>
+          <select id="projectSelect"></select>
+          <div class="mini-actions">
+            <button id="renameProjectBtn" type="button">修改项目</button>
+            <button id="deleteProjectBtn" type="button">删除项目</button>
+          </div>
         </div>
-        <div id="creatorList" class="stack"></div>
+
+        <div class="side-block">
+          <div class="side-head">
+            <h2>当前博主</h2>
+            <button id="addCreatorBtn" type="button">新增</button>
+          </div>
+          <select id="creatorSelect"></select>
+          <div class="mini-actions">
+            <button id="renameCreatorBtn" type="button">修改博主</button>
+            <button id="deleteCreatorBtn" type="button">删除博主</button>
+          </div>
+        </div>
       </aside>
 
       <section class="workspace">
-        <nav class="section-tabs" aria-label="工作区">
-          <button class="section-tab active" data-section="brief" type="button">Brief</button>
-          <button class="section-tab" data-section="script" type="button">Script</button>
-          <button class="section-tab" data-section="draft" type="button">Draft</button>
-          <button class="section-tab" data-section="post" type="button">Post</button>
-        </nav>
+        <section id="overviewView" class="overview-view"></section>
 
-        <section id="briefSection" class="section-card"></section>
-        <section id="scriptSection" class="section-card hidden"></section>
-        <section id="draftSection" class="section-card hidden"></section>
-        <section id="postSection" class="section-card hidden"></section>
+        <section id="projectView" class="project-view hidden">
+          <nav class="section-tabs" aria-label="工作区">
+            <button class="section-tab active" data-section="brief" type="button">Brief</button>
+            <button class="section-tab" data-section="script" type="button">Script</button>
+            <button class="section-tab" data-section="draft" type="button">Draft</button>
+            <button class="section-tab" data-section="post" type="button">Post</button>
+          </nav>
 
-        <div class="audit-actions">
-          <button id="auditBtn" class="primary" type="button">生成审核</button>
-          <button id="clearCreatorBtn" type="button">清空当前博主</button>
-        </div>
+          <section id="briefSection" class="section-card"></section>
+          <section id="scriptSection" class="section-card hidden"></section>
+          <section id="draftSection" class="section-card hidden"></section>
+          <section id="postSection" class="section-card hidden"></section>
+
+          <div class="audit-actions">
+            <button id="auditBtn" class="primary" type="button">开始审核</button>
+            <button id="clearCreatorBtn" type="button">清空当前博主</button>
+          </div>
+        </section>
       </section>
 
       <aside class="results">
-        <div class="score-card">
+        <div class="result-top">
           <div>
             <p class="kicker">审核结论</p>
             <h2 id="verdict">待审核</h2>
@@ -68,9 +83,12 @@
           <div class="score-ring" id="scoreRing">--</div>
         </div>
 
-        <div id="summary" class="summary">
-          点击“生成审核”后，这里会按“客户要求 / 博主是否完成 / 评价”输出审核表。
+        <div class="summary-grid">
+          <div><span>已完成</span><strong id="doneCount">0</strong></div>
+          <div><span>疑似缺失</span><strong id="maybeCount">0</strong></div>
+          <div><span>未修改</span><strong id="missingCount">0</strong></div>
         </div>
+        <p id="summary" class="summary">选择项目和博主后开始审核。</p>
 
         <div class="result-controls">
           <button class="filter-btn active" data-filter="all" type="button">全部</button>
