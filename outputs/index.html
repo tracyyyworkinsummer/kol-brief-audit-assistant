@@ -15,7 +15,7 @@
       </div>
       <div class="top-actions">
         <button id="sampleBtn" type="button">载入示例</button>
-        <button id="clearBtn" type="button">清空当前项目</button>
+        <button id="exportBtn" type="button">复制审核表</button>
       </div>
     </header>
 
@@ -24,29 +24,38 @@
         <div class="panel-head">
           <div>
             <h2>项目</h2>
-            <p>同一项目共享一份 brief，不同博主共用。</p>
+            <p>同一项目共享一份 Brief。</p>
           </div>
-          <button id="addProjectBtn" type="button">新增项目</button>
+          <button id="addProjectBtn" type="button">新增</button>
         </div>
-        <div id="projectList" class="project-list"></div>
+        <div id="projectList" class="stack"></div>
+
+        <div class="panel-head creator-head">
+          <div>
+            <h2>博主</h2>
+            <p>同项目下可管理多位博主。</p>
+          </div>
+          <button id="addCreatorBtn" type="button">新增</button>
+        </div>
+        <div id="creatorList" class="stack"></div>
       </aside>
 
       <section class="workspace">
-        <div class="section-tabs" role="tablist" aria-label="审核模块">
+        <nav class="section-tabs" aria-label="工作区">
           <button class="section-tab active" data-section="brief" type="button">Brief</button>
           <button class="section-tab" data-section="script" type="button">Script</button>
           <button class="section-tab" data-section="draft" type="button">Draft</button>
           <button class="section-tab" data-section="post" type="button">Post</button>
-        </div>
+        </nav>
 
-        <article id="briefSection" class="section-card"></article>
-        <article id="scriptSection" class="section-card hidden"></article>
-        <article id="draftSection" class="section-card hidden"></article>
-        <article id="postSection" class="section-card hidden"></article>
+        <section id="briefSection" class="section-card"></section>
+        <section id="scriptSection" class="section-card hidden"></section>
+        <section id="draftSection" class="section-card hidden"></section>
+        <section id="postSection" class="section-card hidden"></section>
 
         <div class="audit-actions">
-          <button id="auditBtn" class="primary" type="button">开始审核</button>
-          <button id="copyBtn" type="button">复制审核结论</button>
+          <button id="auditBtn" class="primary" type="button">生成审核</button>
+          <button id="clearCreatorBtn" type="button">清空当前博主</button>
         </div>
       </section>
 
@@ -60,25 +69,17 @@
         </div>
 
         <div id="summary" class="summary">
-          录入资料后点击“开始审核”，这里会显示覆盖率、缺失要点、疑似未修改项和建议反馈话术。
+          点击“生成审核”后，这里会按“客户要求 / 博主是否完成 / 评价”输出审核表。
         </div>
 
         <div class="result-controls">
           <button class="filter-btn active" data-filter="all" type="button">全部</button>
-          <button class="filter-btn" data-filter="updated" type="button">已修改</button>
+          <button class="filter-btn" data-filter="done" type="button">已完成</button>
           <button class="filter-btn" data-filter="maybe" type="button">疑似缺失</button>
           <button class="filter-btn" data-filter="missing" type="button">未修改</button>
         </div>
 
-        <div class="result-block">
-          <h3>逐项检查</h3>
-          <div id="checks" class="checks"></div>
-        </div>
-
-        <div class="result-block">
-          <h3>可复制反馈</h3>
-          <textarea id="feedbackOutput" readonly placeholder="审核后自动生成给博主/客户的反馈文案"></textarea>
-        </div>
+        <div id="auditTable" class="audit-table"></div>
       </aside>
     </section>
   </main>
