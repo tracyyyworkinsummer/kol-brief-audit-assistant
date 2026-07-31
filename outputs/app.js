@@ -117,6 +117,27 @@ function statusText(level) {
   return level === "done" ? "已完成" : level === "maybe" ? "疑似缺失" : "未修改";
 }
 
+function statusIcon(level) {
+  return level === "done" ? "✓" : level === "maybe" ? "!" : "×";
+}
+
+function stageStatus(creatorItem, stage) {
+  if (stage === "script") {
+    const rounds = creatorItem.scriptRounds || [];
+    if (rounds.some(round => normalize(round.feedbackText))) return "maybe";
+    return rounds.some(round => normalize(round.scriptText)) ? "done" : "missing";
+  }
+  if (stage === "draft") {
+    const rounds = creatorItem.draftRounds || [];
+    if (rounds.some(round => normalize(round.feedbackText))) return "maybe";
+    return rounds.some(round => round.videoFile) ? "done" : "missing";
+  }
+  if (stage === "post") {
+    return (creatorItem.posts || []).some(post => normalize(post.caption) || normalize(post.url)) ? "done" : "missing";
+  }
+  return "missing";
+}
+
 function setSection(section) {
   activeSection = section;
   document.querySelectorAll(".section-tab").forEach(btn => btn.classList.toggle("active", btn.dataset.section === section));
@@ -130,18 +151,60 @@ function setView(view) {
   el("projectView").classList.toggle("hidden", view !== "project");
 }
 
-function renderSelectors() {
-  el("projectSelect").innerHTML = state.projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
-  el("projectSelect").value = activeProjectId;
-  el("creatorSelect").innerHTML = project().creators.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
-  el("creatorSelect").value = activeCreatorId;
+function renderCampaignTree() {
+  el("campaignTree").innerHTML = state.projects.map(p => `
+    <section class="tree-project ${p.id === activeProjectId ? "active" : ""}">
+      <div class="tree-project-head">
+        <button class="tree-project-btn" data-project-id="${p.id}" type="button">${esc(p.name)}</button>
+        <div class="tree-actions">
+          <button class="rename-project" data-project-id="${p.id}" type="button">改</button>
+          <button class="delete-project" data-project-id="${p.id}" type="button">删</button>
+        </div>
+      </div>
+      <button class="tree-brief" data-project-id="${p.id}" type="button">${p.brief ? "✓" : "×"} Brief</button>
+      <div class="tree-creators">
+        ${p.creators.map(c => `
+          <div class="tree-creator ${c.id === activeCreatorId ? "active" : ""}">
+            <div class="tree-creator-head">
+              <button class="tree-creator-btn" data-project-id="${p.id}" data-creator-id="${c.id}" type="button">▾ ${esc(c.name)}</button>
+              <div class="tree-actions">
+                <button class="rename-creator" data-project-id="${p.id}" data-creator-id="${c.id}" type="button">改</button>
+                <button class="delete-creator" data-project-id="${p.id}" data-creator-id="${c.id}" type="button">删</button>
+              </div>
+            </div>
+            <button class="tree-stage" data-project-id="${p.id}" data-creator-id="${c.id}" data-section="script" type="button">${statusIcon(stageStatus(c, "script"))} Script</button>
+            <button class="tree-stage" data-project-id="${p.id}" data-creator-id="${c.id}" data-section="draft" type="button">${statusIcon(stageStatus(c, "draft"))} Draft</button>
+            <button class="tree-stage" data-project-id="${p.id}" data-creator-id="${c.id}" data-section="post" type="button">${statusIcon(stageStatus(c, "post"))} Post</button>
+          </div>
+        `).join("")}
+      </div>
+      <button class="tree-add-creator" data-project-id="${p.id}" type="button">+ 添加博主</button>
+    </section>
+  `).join("");
 }
 
 function renderOverview() {
+  const totals = state.projects.reduce((acc, p) => {
+    p.creators.forEach(c => {
+      ["script", "draft", "post"].forEach(stage => {
+        const status = stageStatus(c, stage);
+        if (status === "done") acc.approved += 1;
+        if (status === "maybe") acc.pending += 1;
+        if (status === "missing") acc.missing += 1;
+      });
+    });
+    return acc;
+  }, { approved: 0, pending: 0, missing: 0 });
   el("overviewView").innerHTML = `
     <div class="overview-head">
-      <h2>项目总览</h2>
+      <h2>Review Dashboard</h2>
       <button id="overviewAddProject" type="button">新增项目</button>
+    </div>
+    <div class="dashboard-grid">
+      <div><span>Pending</span><strong>${totals.pending}</strong></div>
+      <div><span>Approved</span><strong>${totals.approved}</strong></div>
+      <div><span>Need Revision</span><strong>${totals.missing}</strong></div>
+      <div><span>Average Revision</span><strong>2.1</strong></div>
     </div>
     <div class="project-grid">
       ${state.projects.map(p => `
@@ -151,6 +214,28 @@ function renderOverview() {
         </button>
       `).join("")}
     </div>
+  `;
+}
+
+function renderProgressPanel() {
+  const p = project();
+  const rows = p.creators.map(c => `
+    <div class="progress-row">
+      <strong>${esc(c.name)}</strong>
+      <span class="${stageStatus(c, "script")}">${statusIcon(stageStatus(c, "script"))} Script</span>
+      <span class="${stageStatus(c, "draft")}">${statusIcon(stageStatus(c, "draft"))} Draft</span>
+      <span class="${stageStatus(c, "post")}">${statusIcon(stageStatus(c, "post"))} Post</span>
+    </div>
+  `).join("");
+  el("progressPanel").innerHTML = `
+    <div class="progress-title">
+      <div>
+        <h2>${esc(p.name)}</h2>
+        <p>Campaign Progress</p>
+      </div>
+      <span class="${p.brief ? "done" : "missing"}">${p.brief ? "✓ Brief" : "× Brief"}</span>
+    </div>
+    <div class="progress-list">${rows}</div>
   `;
 }
 
@@ -165,7 +250,18 @@ function renderBrief() {
     </div>
     <textarea id="briefText" placeholder="粘贴客户 brief、方向、核心卖点、发布关键词、禁用词等...">${esc(p.brief)}</textarea>
     <p class="file-status">${p.briefFile ? `已读取：${esc(p.briefFile)}` : "未上传文件"}</p>
+    <label><span>Review Rules / Prompt</span><textarea id="reviewRules" placeholder="可放品牌规范、平台规则、国家市场注意事项。当前版本作为备忘，不参与自动审核。">${esc(p.reviewRules || "")}</textarea></label>
   `;
+}
+
+function scriptMetrics(text) {
+  const words = (text.match(/[a-zA-Z0-9#@_-]+|[\u4e00-\u9fa5]/g) || []).length;
+  const english = (text.match(/[a-zA-Z]{3,}/g) || []).length;
+  const chinese = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+  const language = english > chinese ? "English" : chinese ? "Chinese" : "Unknown";
+  const seconds = Math.max(15, Math.round(words / 2.4));
+  const topics = terms(text).slice(0, 6);
+  return { words, language, duration: `${Math.floor(seconds / 60)}m${String(seconds % 60).padStart(2, "0")}s`, topics };
 }
 
 function renderScript() {
@@ -187,6 +283,15 @@ function renderScript() {
               <label><span>脚本内容</span><textarea class="script-text" data-index="${index}" placeholder="粘贴脚本内容...">${esc(round.scriptText)}</textarea></label>
             </div>
             <aside class="upload-panel">
+              ${(() => {
+                const metric = scriptMetrics(round.scriptText || "");
+                return `<div class="metric-grid">
+                  <div><span>Language</span><strong>${metric.language}</strong></div>
+                  <div><span>Word Count</span><strong>${metric.words}</strong></div>
+                  <div><span>Estimated</span><strong>${metric.duration}</strong></div>
+                  <div><span>Topics</span><strong>${esc(metric.topics.join(", ") || "-")}</strong></div>
+                </div>`;
+              })()}
               <label class="file-button wide">上传脚本文件<input class="script-file" data-index="${index}" type="file" accept=".txt,.md,.csv,.json,.srt,.vtt"></label>
               <p class="file-status">${round.scriptFile ? `已读取：${esc(round.scriptFile)}` : "支持 txt / md / srt / vtt"}</p>
             </aside>
@@ -215,6 +320,18 @@ function renderDraft() {
           <div class="draft-upload">
             <label class="file-button wide">上传视频<input class="draft-video" data-index="${index}" type="file" accept="video/*"></label>
             <span class="file-status">${round.videoFile ? `已上传：${esc(round.videoFile)}` : "未上传视频"}</span>
+          </div>
+          <div class="metadata-grid">
+            <div><span>Resolution</span><strong>${round.videoFile ? "待解析" : "-"}</strong></div>
+            <div><span>Duration</span><strong>${round.videoFile ? "待解析" : "-"}</strong></div>
+            <div><span>FPS</span><strong>${round.videoFile ? "待解析" : "-"}</strong></div>
+            <div><span>Subtitle</span><strong>${round.videoFile ? "待确认" : "-"}</strong></div>
+          </div>
+          <div class="review-sections">
+            <span>Visual Review</span>
+            <span>Audio Review</span>
+            <span>Subtitle Review</span>
+            <span>Brand Review</span>
           </div>
           <label><span>客户对本版视频的反馈</span><textarea class="draft-feedback" data-index="${index}" placeholder="用于审核下一版 Draft 是否按意见修改...">${esc(round.feedbackText || "")}</textarea></label>
         </article>
@@ -250,8 +367,9 @@ function renderPost() {
 }
 
 function renderAll() {
-  renderSelectors();
+  renderCampaignTree();
   renderOverview();
+  renderProgressPanel();
   renderBrief();
   renderScript();
   renderDraft();
@@ -275,11 +393,14 @@ function buildScriptRows() {
   const first = c.scriptRounds[0];
   if (project().brief || first?.scriptText) {
     const match = directionMatch(project().brief, first?.scriptText || "");
-    rows.push({
-      source: "Script 1",
-      requirement: "第一版脚本方向与 Brief 一致",
-      level: match.level,
-      comment: match.level === "done"
+      rows.push({
+        source: "Script 1",
+        requirement: "第一版脚本方向与 Brief 一致",
+        level: match.level,
+        severity: match.level === "missing" ? "Critical" : match.level === "maybe" ? "Major" : "Pass",
+        category: "Mandatory",
+        evidence: match.found.length ? `Matched: ${match.found.join(" / ")}` : "No brief direction detected in script v1",
+        comment: match.level === "done"
         ? `脚本初稿与 Brief 大方向一致，已提到相关方向：${match.found.join("、") || "核心方向"}。`
         : match.level === "maybe"
           ? "脚本初稿有部分方向贴合 Brief，建议人工复核是否足够。"
@@ -295,6 +416,9 @@ function buildScriptRows() {
         source: `Script ${i + 2}`,
         requirement: item,
         level: match.level,
+        severity: match.level === "missing" ? "Major" : "Pass",
+        category: "Mandatory",
+        evidence: match.found.length ? `Matched: ${match.found.join(" / ")}` : `Compared v${i + 1} feedback with v${i + 2} script`,
         comment: match.level === "done"
           ? `新版脚本已提到相关修改点：${match.found.join("、") || "有对应表达"}。`
           : "新版脚本未找到明显对应表达，建议补充或人工确认。"
@@ -314,6 +438,9 @@ function buildDraftRows() {
       source: "Draft 1",
       requirement: "第一版 Draft 与最新确认脚本一致",
       level: latestScript ? "maybe" : "missing",
+      severity: latestScript ? "Major" : "Critical",
+      category: "Brand",
+      evidence: firstDraft.videoFile ? `Video file: ${firstDraft.videoFile}` : "No video file",
       comment: latestScript
         ? `已上传 ${firstDraft.videoFile}。需人工观看视频，确认是否按最新脚本拍摄。`
         : "尚未录入可对照的最新脚本。"
@@ -327,6 +454,9 @@ function buildDraftRows() {
         source: `Draft ${i + 2}`,
         requirement: item,
         level: nextDraft?.videoFile ? "maybe" : "missing",
+        severity: nextDraft?.videoFile ? "Major" : "Critical",
+        category: "Brand",
+        evidence: nextDraft?.videoFile ? `Video file: ${nextDraft.videoFile}` : "No next draft uploaded",
         comment: nextDraft?.videoFile
           ? `已上传 ${nextDraft.videoFile}。需人工观看视频确认该反馈是否已修改。`
           : "尚未上传下一版 Draft，无法确认是否修改。"
@@ -354,6 +484,9 @@ function buildPostRows() {
       source: "Post",
       requirement: `Caption 包含：${keyword}`,
       level: ok ? "done" : "missing",
+      severity: ok ? "Pass" : "Critical",
+      category: "Mandatory",
+      evidence: ok ? `Detected keyword: ${keyword}` : "Caption keyword not found",
       comment: ok ? "发布 caption 已包含该关键词。" : "发布 caption 未找到该关键词。"
     };
   });
@@ -370,17 +503,41 @@ function buildRiskRows() {
       source: "Risk",
       requirement: `避免高风险表达：${word}`,
       level: "maybe",
+      severity: "Major",
+      category: "Risk",
+      evidence: `Detected risk word: ${word}`,
       comment: "发现可能夸张或合规风险表达，建议人工确认是否需要替换。"
     }));
 }
 
 function buildAudit() {
   const rows = [...buildScriptRows(), ...buildDraftRows(), ...buildPostRows(), ...buildRiskRows()];
+  const diffs = buildDiffRows();
   const done = rows.filter(row => row.level === "done").length;
   const maybe = rows.filter(row => row.level === "maybe").length;
   const missing = rows.filter(row => row.level === "missing").length;
   const score = rows.length ? Math.round(((done + maybe * 0.4) / rows.length) * 100) : 0;
-  return { rows, done, maybe, missing, score };
+  return { rows, diffs, done, maybe, missing, score };
+}
+
+function buildDiffRows() {
+  const c = creator();
+  const diffs = [];
+  for (let i = 0; i < c.scriptRounds.length - 1; i += 1) {
+    const feedbackItems = splitItems(c.scriptRounds[i].feedbackText || "");
+    const nextScript = c.scriptRounds[i + 1].scriptText || "";
+    const fixed = [];
+    const stillMissing = [];
+    feedbackItems.forEach(item => {
+      const match = looseMatch(item, nextScript);
+      if (match.level === "done") fixed.push(item);
+      else stillMissing.push(item);
+    });
+    if (fixed.length || stillMissing.length) {
+      diffs.push({ from: `Script v${i + 1}`, to: `Script v${i + 2}`, fixed, stillMissing, newIssues: [] });
+    }
+  }
+  return diffs;
 }
 
 function renderAudit(audit) {
@@ -393,6 +550,7 @@ function renderAudit(audit) {
   el("maybeCount").textContent = audit.maybe;
   el("missingCount").textContent = audit.missing;
   el("summary").textContent = `${project().name} / ${creator().name}`;
+  renderChecklist(audit);
   const rows = audit.rows.filter(row => activeFilter === "all" || row.level === activeFilter);
   el("auditTable").innerHTML = `
     <div class="table-head">
@@ -403,10 +561,42 @@ function renderAudit(audit) {
     ${rows.length ? rows.map((row, index) => `
       <div class="table-row ${row.level}">
         <div class="requirement"><strong>${index + 1}. ${esc(row.requirement)}</strong><small>${row.source}</small></div>
-        <div><span class="status ${row.level}">✓ ${statusText(row.level)}</span></div>
-        <div class="comment">${esc(row.comment)}</div>
+        <div><span class="status ${row.level}">${statusIcon(row.level)} ${statusText(row.level)}</span><small>${esc(row.severity || "")}</small></div>
+        <div class="comment">${esc(row.comment)}<small>Evidence: ${esc(row.evidence || "N/A")}</small></div>
       </div>
     `).join("") : `<div class="empty">当前筛选下没有结果。</div>`}
+  `;
+}
+
+function renderChecklist(audit) {
+  const countBy = category => {
+    const items = audit.rows.filter(row => row.category === category);
+    return `${items.filter(row => row.level === "done").length}/${items.length || 0}`;
+  };
+  const riskRows = audit.rows.filter(row => row.category === "Risk");
+  const firstDiff = audit.diffs[0];
+  el("reviewChecklist").innerHTML = `
+    <div class="checklist-section">
+      <h3>Overall</h3>
+      <div class="overall-line"><strong>${audit.score}</strong><span>${audit.missing ? "NEED REVISION" : "PASS"}</span></div>
+    </div>
+    <div class="checklist-section">
+      <h3>Mandatory</h3>
+      <p>${countBy("Mandatory")}</p>
+    </div>
+    <div class="checklist-section">
+      <h3>Brand</h3>
+      <p>${countBy("Brand")}</p>
+    </div>
+    <div class="checklist-section">
+      <h3>Risk</h3>
+      <p>${riskRows.length ? `${riskRows.length} item(s)` : "No Risk"}</p>
+    </div>
+    ${firstDiff ? `<div class="checklist-section diff-box">
+      <h3>Diff: ${esc(firstDiff.from)} → ${esc(firstDiff.to)}</h3>
+      <p>Fixed: ${esc(firstDiff.fixed.slice(0, 3).join(" / ") || "-")}</p>
+      <p>Still Missing: ${esc(firstDiff.stillMissing.slice(0, 3).join(" / ") || "-")}</p>
+    </div>` : ""}
   `;
 }
 
@@ -492,6 +682,42 @@ document.addEventListener("click", async event => {
   target = target.closest("button") || target;
   if (target.classList.contains("side-tab")) return setView(target.dataset.view);
   if (target.classList.contains("section-tab")) return setSection(target.dataset.section);
+  if (target.classList.contains("tree-project-btn") || target.classList.contains("tree-brief")) {
+    activeProjectId = target.dataset.projectId;
+    activeCreatorId = project().creators[0].id;
+    activeView = "project";
+    activeSection = "brief";
+    return renderAll();
+  }
+  if (target.classList.contains("tree-creator-btn") || target.classList.contains("tree-stage")) {
+    activeProjectId = target.dataset.projectId;
+    activeCreatorId = target.dataset.creatorId;
+    activeView = "project";
+    if (target.dataset.section) activeSection = target.dataset.section;
+    return renderAll();
+  }
+  if (target.classList.contains("tree-add-creator")) {
+    activeProjectId = target.dataset.projectId;
+    return addCreator();
+  }
+  if (target.classList.contains("rename-project")) {
+    const treeProject = state.projects.find(item => item.id === target.dataset.projectId);
+    const name = prompt("修改项目名称", treeProject.name);
+    if (name) treeProject.name = name.trim();
+    return renderAll();
+  }
+  if (target.classList.contains("delete-project")) return deleteProject(target.dataset.projectId);
+  if (target.classList.contains("rename-creator")) {
+    activeProjectId = target.dataset.projectId;
+    const treeCreator = project().creators.find(item => item.id === target.dataset.creatorId);
+    const name = prompt("修改博主名称", treeCreator.name);
+    if (name) treeCreator.name = name.trim();
+    return renderAll();
+  }
+  if (target.classList.contains("delete-creator")) {
+    activeProjectId = target.dataset.projectId;
+    return deleteCreator(target.dataset.creatorId);
+  }
   if (target.classList.contains("project-card")) {
     activeProjectId = target.dataset.projectId;
     activeCreatorId = project().creators[0].id;
@@ -592,15 +818,6 @@ document.addEventListener("click", async event => {
 document.addEventListener("change", async event => {
   const target = event.target;
   if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
-  if (target.id === "projectSelect") {
-    activeProjectId = target.value;
-    activeCreatorId = project().creators[0].id;
-    return renderAll();
-  }
-  if (target.id === "creatorSelect") {
-    activeCreatorId = target.value;
-    return renderAll();
-  }
   const file = target.files?.[0];
   if (!file) return;
   if (target.id === "briefFile") {
@@ -622,6 +839,7 @@ document.addEventListener("input", event => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
   if (target.id === "briefText") project().brief = target.value;
+  if (target.id === "reviewRules") project().reviewRules = target.value;
   if (target.classList.contains("script-text")) creator().scriptRounds[Number(target.dataset.index)].scriptText = target.value;
   if (target.classList.contains("script-feedback")) creator().scriptRounds[Number(target.dataset.index)].feedbackText = target.value;
   if (target.classList.contains("draft-feedback")) creator().draftRounds[Number(target.dataset.index)].feedbackText = target.value;

@@ -21,45 +21,24 @@
 
     <section class="shell">
       <aside class="sidebar">
-        <nav class="side-nav">
-          <button class="side-tab active" data-view="overview" type="button">项目总览</button>
-          <button class="side-tab" data-view="project" type="button">具体项目</button>
-        </nav>
-
-        <div class="side-block">
-          <div class="side-head">
-            <h2>当前项目</h2>
-            <button id="addProjectBtn" type="button">新增</button>
-          </div>
-          <select id="projectSelect"></select>
-          <div class="mini-actions">
-            <button id="renameProjectBtn" type="button">修改项目</button>
-            <button id="deleteProjectBtn" type="button">删除项目</button>
-          </div>
+        <div class="side-head">
+          <h2>Campaign</h2>
+          <button id="addProjectBtn" type="button">新增</button>
         </div>
-
-        <div class="side-block">
-          <div class="side-head">
-            <h2>当前博主</h2>
-            <button id="addCreatorBtn" type="button">新增</button>
-          </div>
-          <select id="creatorSelect"></select>
-          <div class="mini-actions">
-            <button id="renameCreatorBtn" type="button">修改博主</button>
-            <button id="deleteCreatorBtn" type="button">删除博主</button>
-          </div>
-        </div>
+        <nav id="campaignTree" class="campaign-tree" aria-label="Campaign navigation"></nav>
       </aside>
 
       <section class="workspace">
         <section id="overviewView" class="overview-view"></section>
 
         <section id="projectView" class="project-view hidden">
-          <nav class="section-tabs" aria-label="工作区">
-            <button class="section-tab active" data-section="brief" type="button">Brief</button>
-            <button class="section-tab" data-section="script" type="button">Script</button>
-            <button class="section-tab" data-section="draft" type="button">Draft</button>
-            <button class="section-tab" data-section="post" type="button">Post</button>
+          <section id="progressPanel" class="progress-panel"></section>
+
+          <nav class="workflow-stepper" aria-label="工作区">
+            <button class="section-tab active" data-section="brief" type="button"><span>STEP 1</span>Brief</button>
+            <button class="section-tab" data-section="script" type="button"><span>STEP 2</span>Script</button>
+            <button class="section-tab" data-section="draft" type="button"><span>STEP 3</span>Draft</button>
+            <button class="section-tab" data-section="post" type="button"><span>STEP 4</span>Post</button>
           </nav>
 
           <section id="briefSection" class="section-card"></section>
@@ -89,6 +68,8 @@
           <div><span>未修改</span><strong id="missingCount">0</strong></div>
         </div>
         <p id="summary" class="summary">选择项目和博主后开始审核。</p>
+
+        <div id="reviewChecklist" class="review-checklist"></div>
 
         <div class="result-controls">
           <button class="filter-btn active" data-filter="all" type="button">全部</button>
