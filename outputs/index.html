@@ -21,10 +21,11 @@
 
     <section class="shell">
       <aside class="sidebar">
-        <div class="side-head">
-          <h2>Campaign</h2>
-          <button id="addProjectBtn" type="button">新增</button>
-        </div>
+        <nav class="side-nav" aria-label="主导航">
+          <button class="side-tab active" data-view="overview" type="button">项目总览</button>
+          <button class="side-tab" data-view="project" type="button">内容审核</button>
+        </nav>
+        <div class="side-head"><h2>项目</h2><button id="addProjectBtn" type="button">新增</button></div>
         <nav id="campaignTree" class="campaign-tree" aria-label="Campaign navigation"></nav>
       </aside>
 
@@ -33,53 +34,47 @@
 
         <section id="projectView" class="project-view hidden">
           <section id="progressPanel" class="progress-panel"></section>
+          <div class="review-workspace">
+            <div class="review-inputs">
+              <nav class="workflow-stepper" aria-label="工作区">
+                <button class="section-tab active" data-section="brief" type="button">Brief</button>
+                <button class="section-tab" data-section="script" type="button">Script</button>
+                <button class="section-tab" data-section="draft" type="button">Draft</button>
+                <button class="section-tab" data-section="post" type="button">Post</button>
+              </nav>
+              <section id="briefSection" class="section-card"></section>
+              <section id="scriptSection" class="section-card hidden"></section>
+              <section id="draftSection" class="section-card hidden"></section>
+              <section id="postSection" class="section-card hidden"></section>
+              <div class="audit-actions">
+                <button id="auditBtn" class="primary" type="button">审核本阶段</button>
+                <button id="clearCreatorBtn" type="button">清空当前博主</button>
+              </div>
+            </div>
 
-          <nav class="workflow-stepper" aria-label="工作区">
-            <button class="section-tab active" data-section="brief" type="button"><span>STEP 1</span>Brief</button>
-            <button class="section-tab" data-section="script" type="button"><span>STEP 2</span>Script</button>
-            <button class="section-tab" data-section="draft" type="button"><span>STEP 3</span>Draft</button>
-            <button class="section-tab" data-section="post" type="button"><span>STEP 4</span>Post</button>
-          </nav>
-
-          <section id="briefSection" class="section-card"></section>
-          <section id="scriptSection" class="section-card hidden"></section>
-          <section id="draftSection" class="section-card hidden"></section>
-          <section id="postSection" class="section-card hidden"></section>
-
-          <div class="audit-actions">
-            <button id="auditBtn" class="primary" type="button">开始审核</button>
-            <button id="clearCreatorBtn" type="button">清空当前博主</button>
+            <aside class="results">
+              <div class="result-top">
+                <div><p class="kicker">修改落实情况</p><h2 id="verdict">待审核</h2></div>
+                <div class="score-ring" id="scoreRing">--</div>
+              </div>
+              <div class="summary-grid">
+                <div><span>已落实</span><strong id="doneCount">0</strong></div>
+                <div><span>待确认</span><strong id="maybeCount">0</strong></div>
+                <div><span>未落实</span><strong id="missingCount">0</strong></div>
+              </div>
+              <p id="summary" class="summary">选择博主与阶段后开始审核。</p>
+              <div id="reviewChecklist" class="review-checklist"></div>
+              <div class="result-controls">
+                <button class="filter-btn active" data-filter="all" type="button">全部</button>
+                <button class="filter-btn" data-filter="done" type="button">已落实</button>
+                <button class="filter-btn" data-filter="maybe" type="button">待确认</button>
+                <button class="filter-btn" data-filter="missing" type="button">未落实</button>
+              </div>
+              <div id="auditTable" class="audit-table"></div>
+            </aside>
           </div>
         </section>
       </section>
-
-      <aside class="results">
-        <div class="result-top">
-          <div>
-            <p class="kicker">审核结论</p>
-            <h2 id="verdict">待审核</h2>
-          </div>
-          <div class="score-ring" id="scoreRing">--</div>
-        </div>
-
-        <div class="summary-grid">
-          <div><span>已完成</span><strong id="doneCount">0</strong></div>
-          <div><span>疑似缺失</span><strong id="maybeCount">0</strong></div>
-          <div><span>未修改</span><strong id="missingCount">0</strong></div>
-        </div>
-        <p id="summary" class="summary">选择项目和博主后开始审核。</p>
-
-        <div id="reviewChecklist" class="review-checklist"></div>
-
-        <div class="result-controls">
-          <button class="filter-btn active" data-filter="all" type="button">全部</button>
-          <button class="filter-btn" data-filter="done" type="button">已完成</button>
-          <button class="filter-btn" data-filter="maybe" type="button">疑似缺失</button>
-          <button class="filter-btn" data-filter="missing" type="button">未修改</button>
-        </div>
-
-        <div id="auditTable" class="audit-table"></div>
-      </aside>
     </section>
   </main>
   <script src="./app.js"></script>

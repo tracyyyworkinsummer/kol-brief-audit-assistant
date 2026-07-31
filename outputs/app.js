@@ -102,6 +102,43 @@ function looseMatch(requirement, target, minHits = 1) {
   return { level: "missing", found };
 }
 
+const conceptGroups = [
+  ["cta", "行动号召", "引导购买", "点击链接", "立即体验", "了解更多"],
+  ["logo", "品牌标志", "品牌露出", "标识"],
+  ["产品", "商品", "实物", "包装"],
+  ["前置", "开头", "一开始", "前三秒", "首屏"],
+  ["字幕", "caption", "屏幕文字", "文案"],
+  ["口播", "旁白", "voice", "发音"],
+  ["特写", "近景", "close-up", "closeup"],
+  ["hashtag", "话题", "标签", "#"],
+  ["链接", "link", "落地页"],
+  ["场景", "画面", "镜头", "storyboard", "分镜"]
+];
+
+function matchedConcepts(requirement, target) {
+  const requirementText = normalize(requirement);
+  const targetText = normalize(target);
+  return conceptGroups
+    .filter(group => group.some(term => requirementText.includes(normalize(term))))
+    .filter(group => group.some(term => targetText.includes(normalize(term))))
+    .map(group => group[0]);
+}
+
+function revisionMatch(requirement, target) {
+  const direct = looseMatch(requirement, target);
+  const concepts = matchedConcepts(requirement, target);
+  const removal = /删除|删掉|去掉|移除|不要|避免|禁用|不能出现/.test(requirement);
+  if (removal) {
+    const subjectTerms = terms(requirement).filter(term => !/删除|删掉|去掉|移除|不要|避免|禁用|不能出现/.test(term));
+    const stillPresent = subjectTerms.filter(term => normalize(target).includes(term));
+    return { level: stillPresent.length ? "missing" : "done", found: stillPresent, mode: "remove" };
+  }
+  if (direct.level === "done" || concepts.length) {
+    return { level: "done", found: [...new Set([...direct.found, ...concepts])], mode: "add" };
+  }
+  return { level: direct.level, found: direct.found, mode: "add" };
+}
+
 function directionMatch(brief, script) {
   const briefItems = splitItems(brief);
   const scriptText = normalize(script);
@@ -114,17 +151,28 @@ function directionMatch(brief, script) {
 }
 
 function statusText(level) {
-  return level === "done" ? "已完成" : level === "maybe" ? "疑似缺失" : "未修改";
+  return level === "done" ? "已落实" : level === "maybe" ? "待人工确认" : "未落实";
 }
 
 function statusIcon(level) {
-  return level === "done" ? "✓" : level === "maybe" ? "!" : "×";
+  return level === "done" ? "已落实" : level === "maybe" ? "待确认" : "未落实";
 }
 
 function stageStatus(creatorItem, stage) {
   if (stage === "script") {
     const rounds = creatorItem.scriptRounds || [];
-    if (rounds.some(round => normalize(round.feedbackText))) return "maybe";
+    let hasFeedback = false;
+    let hasPending = false;
+    for (let i = 0; i < rounds.length - 1; i += 1) {
+      const feedbackItems = splitItems(rounds[i].feedbackText || "");
+      if (!feedbackItems.length) continue;
+      hasFeedback = true;
+      if (!normalize(rounds[i + 1].scriptText)) return "missing";
+      const matches = feedbackItems.map(item => revisionMatch(item, rounds[i + 1].scriptText));
+      if (matches.some(match => match.level === "missing")) return "missing";
+      if (matches.some(match => match.level === "maybe")) hasPending = true;
+    }
+    if (hasFeedback) return hasPending ? "maybe" : "done";
     return rounds.some(round => normalize(round.scriptText)) ? "done" : "missing";
   }
   if (stage === "draft") {
@@ -142,6 +190,7 @@ function setSection(section) {
   activeSection = section;
   document.querySelectorAll(".section-tab").forEach(btn => btn.classList.toggle("active", btn.dataset.section === section));
   sections.forEach(item => el(`${item}Section`).classList.toggle("hidden", item !== section));
+  el("auditBtn").classList.toggle("hidden", section === "brief");
 }
 
 function setView(view) {
@@ -153,33 +202,9 @@ function setView(view) {
 
 function renderCampaignTree() {
   el("campaignTree").innerHTML = state.projects.map(p => `
-    <section class="tree-project ${p.id === activeProjectId ? "active" : ""}">
-      <div class="tree-project-head">
-        <button class="tree-project-btn" data-project-id="${p.id}" type="button">${esc(p.name)}</button>
-        <div class="tree-actions">
-          <button class="rename-project" data-project-id="${p.id}" type="button">改</button>
-          <button class="delete-project" data-project-id="${p.id}" type="button">删</button>
-        </div>
-      </div>
-      <button class="tree-brief" data-project-id="${p.id}" type="button">${p.brief ? "✓" : "×"} Brief</button>
-      <div class="tree-creators">
-        ${p.creators.map(c => `
-          <div class="tree-creator ${c.id === activeCreatorId ? "active" : ""}">
-            <div class="tree-creator-head">
-              <button class="tree-creator-btn" data-project-id="${p.id}" data-creator-id="${c.id}" type="button">▾ ${esc(c.name)}</button>
-              <div class="tree-actions">
-                <button class="rename-creator" data-project-id="${p.id}" data-creator-id="${c.id}" type="button">改</button>
-                <button class="delete-creator" data-project-id="${p.id}" data-creator-id="${c.id}" type="button">删</button>
-              </div>
-            </div>
-            <button class="tree-stage" data-project-id="${p.id}" data-creator-id="${c.id}" data-section="script" type="button">${statusIcon(stageStatus(c, "script"))} Script</button>
-            <button class="tree-stage" data-project-id="${p.id}" data-creator-id="${c.id}" data-section="draft" type="button">${statusIcon(stageStatus(c, "draft"))} Draft</button>
-            <button class="tree-stage" data-project-id="${p.id}" data-creator-id="${c.id}" data-section="post" type="button">${statusIcon(stageStatus(c, "post"))} Post</button>
-          </div>
-        `).join("")}
-      </div>
-      <button class="tree-add-creator" data-project-id="${p.id}" type="button">+ 添加博主</button>
-    </section>
+    <button class="tree-project-btn ${p.id === activeProjectId ? "active" : ""}" data-project-id="${p.id}" type="button">
+      <strong>${esc(p.name)}</strong><span>${p.creators.length} 位博主</span>
+    </button>
   `).join("");
 }
 
@@ -220,12 +245,12 @@ function renderOverview() {
 function renderProgressPanel() {
   const p = project();
   const rows = p.creators.map(c => `
-    <div class="progress-row">
+    <button class="progress-row creator-switch ${c.id === activeCreatorId ? "active" : ""}" data-project-id="${p.id}" data-creator-id="${c.id}" type="button">
       <strong>${esc(c.name)}</strong>
-      <span class="${stageStatus(c, "script")}">${statusIcon(stageStatus(c, "script"))} Script</span>
-      <span class="${stageStatus(c, "draft")}">${statusIcon(stageStatus(c, "draft"))} Draft</span>
-      <span class="${stageStatus(c, "post")}">${statusIcon(stageStatus(c, "post"))} Post</span>
-    </div>
+      <span class="${stageStatus(c, "script")}">Script · ${statusIcon(stageStatus(c, "script"))}</span>
+      <span class="${stageStatus(c, "draft")}">Draft · ${statusIcon(stageStatus(c, "draft"))}</span>
+      <span class="${stageStatus(c, "post")}">Post · ${statusIcon(stageStatus(c, "post"))}</span>
+    </button>
   `).join("");
   el("progressPanel").innerHTML = `
     <div class="progress-title">
@@ -233,7 +258,7 @@ function renderProgressPanel() {
         <h2>${esc(p.name)}</h2>
         <p>Campaign Progress</p>
       </div>
-      <span class="${p.brief ? "done" : "missing"}">${p.brief ? "✓ Brief" : "× Brief"}</span>
+      <button class="tree-add-creator" data-project-id="${p.id}" type="button">添加博主</button>
     </div>
     <div class="progress-list">${rows}</div>
   `;
@@ -254,21 +279,11 @@ function renderBrief() {
   `;
 }
 
-function scriptMetrics(text) {
-  const words = (text.match(/[a-zA-Z0-9#@_-]+|[\u4e00-\u9fa5]/g) || []).length;
-  const english = (text.match(/[a-zA-Z]{3,}/g) || []).length;
-  const chinese = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-  const language = english > chinese ? "English" : chinese ? "Chinese" : "Unknown";
-  const seconds = Math.max(15, Math.round(words / 2.4));
-  const topics = terms(text).slice(0, 6);
-  return { words, language, duration: `${Math.floor(seconds / 60)}m${String(seconds % 60).padStart(2, "0")}s`, topics };
-}
-
 function renderScript() {
   const c = creator();
   el("scriptSection").innerHTML = `
     <div class="section-head">
-      <h2>Script</h2>
+      <div><h2>Script</h2><p class="section-purpose">初稿核对 Brief 大方向；后续每一稿重点核对上一版客户反馈是否落实。</p></div>
       <button id="addScriptRound" type="button">添加一轮</button>
     </div>
     <div class="rounds">
@@ -278,20 +293,14 @@ function renderScript() {
             <strong>第 ${index + 1} 轮：${esc(round.scriptName || `脚本${index + 1}稿`)}</strong>
             ${c.scriptRounds.length > 1 ? `<button class="ghost remove-script-round" data-index="${index}" type="button">删除</button>` : ""}
           </div>
+          <div class="comparison-strip">${index === 0 ? "核对基准：项目 Brief（仅判断整体方向）" : `核对基准：第 ${index} 轮客户反馈 → 本轮脚本`}</div>
           <div class="script-layout">
             <div class="script-main">
               <label><span>脚本内容</span><textarea class="script-text" data-index="${index}" placeholder="粘贴脚本内容...">${esc(round.scriptText)}</textarea></label>
             </div>
             <aside class="upload-panel">
-              ${(() => {
-                const metric = scriptMetrics(round.scriptText || "");
-                return `<div class="metric-grid">
-                  <div><span>Language</span><strong>${metric.language}</strong></div>
-                  <div><span>Word Count</span><strong>${metric.words}</strong></div>
-                  <div><span>Estimated</span><strong>${metric.duration}</strong></div>
-                  <div><span>Topics</span><strong>${esc(metric.topics.join(", ") || "-")}</strong></div>
-                </div>`;
-              })()}
+              <strong>脚本文件</strong>
+              <p class="upload-copy">可直接上传文本脚本，文件内容会自动填入左侧。</p>
               <label class="file-button wide">上传脚本文件<input class="script-file" data-index="${index}" type="file" accept=".txt,.md,.csv,.json,.srt,.vtt"></label>
               <p class="file-status">${round.scriptFile ? `已读取：${esc(round.scriptFile)}` : "支持 txt / md / srt / vtt"}</p>
             </aside>
@@ -307,7 +316,7 @@ function renderDraft() {
   const c = creator();
   el("draftSection").innerHTML = `
     <div class="section-head">
-      <h2>Draft</h2>
+      <div><h2>Draft</h2><p class="section-purpose">视频初稿对照最新脚本；修改稿逐条对照上一版视频反馈。</p></div>
       <button id="addDraftRound" type="button">添加一轮</button>
     </div>
     <div class="rounds">
@@ -317,6 +326,7 @@ function renderDraft() {
             <strong>第 ${index + 1} 轮：${esc(round.title || `视频${index + 1}稿`)}</strong>
             ${c.draftRounds.length > 1 ? `<button class="ghost remove-draft-round" data-index="${index}" type="button">删除</button>` : ""}
           </div>
+          <div class="comparison-strip">${index === 0 ? "核对基准：最新确认脚本 → 视频初稿" : `核对基准：第 ${index} 轮视频反馈 → 本轮视频`}</div>
           <div class="draft-upload">
             <label class="file-button wide">上传视频<input class="draft-video" data-index="${index}" type="file" accept="video/*"></label>
             <span class="file-status">${round.videoFile ? `已上传：${esc(round.videoFile)}` : "未上传视频"}</span>
@@ -411,17 +421,23 @@ function buildScriptRows() {
     const feedback = c.scriptRounds[i].feedbackText;
     const nextScript = c.scriptRounds[i + 1].scriptText;
     splitItems(feedback).forEach(item => {
-      const match = looseMatch(item, nextScript);
+      const match = revisionMatch(item, nextScript);
       rows.push({
         source: `Script ${i + 2}`,
         requirement: item,
         level: match.level,
         severity: match.level === "missing" ? "Major" : "Pass",
         category: "Mandatory",
-        evidence: match.found.length ? `Matched: ${match.found.join(" / ")}` : `Compared v${i + 1} feedback with v${i + 2} script`,
+        evidence: match.found.length
+          ? `${match.mode === "remove" ? "仍检测到" : "检测到对应表达"}：${match.found.join(" / ")}`
+          : `已对照第 ${i + 1} 轮反馈与第 ${i + 2} 轮脚本`,
         comment: match.level === "done"
-          ? `新版脚本已提到相关修改点：${match.found.join("、") || "有对应表达"}。`
-          : "新版脚本未找到明显对应表达，建议补充或人工确认。"
+          ? match.mode === "remove"
+            ? "新版脚本中未再检测到要求删除或避免的内容，可视为已落实。"
+            : `新版脚本已体现该修改点：${match.found.join("、") || "有对应表达"}。`
+          : match.level === "maybe"
+            ? "新版脚本可能有相关表达，但证据不足，建议人工确认。"
+            : "新版脚本中未找到该修改意见的对应变化，建议继续修改。"
       });
     });
   }
@@ -511,7 +527,10 @@ function buildRiskRows() {
 }
 
 function buildAudit() {
-  const rows = [...buildScriptRows(), ...buildDraftRows(), ...buildPostRows(), ...buildRiskRows()];
+  const stageRows = activeSection === "script" ? buildScriptRows()
+    : activeSection === "draft" ? buildDraftRows()
+      : activeSection === "post" ? buildPostRows() : [];
+  const rows = [...stageRows, ...(activeSection === "script" || activeSection === "post" ? buildRiskRows() : [])];
   const diffs = buildDiffRows();
   const done = rows.filter(row => row.level === "done").length;
   const maybe = rows.filter(row => row.level === "maybe").length;
@@ -529,7 +548,7 @@ function buildDiffRows() {
     const fixed = [];
     const stillMissing = [];
     feedbackItems.forEach(item => {
-      const match = looseMatch(item, nextScript);
+      const match = revisionMatch(item, nextScript);
       if (match.level === "done") fixed.push(item);
       else stillMissing.push(item);
     });
@@ -542,7 +561,7 @@ function buildDiffRows() {
 
 function renderAudit(audit) {
   lastAudit = audit;
-  const verdict = audit.rows.length === 0 ? "暂无可审" : audit.missing === 0 ? "基本通过" : audit.score >= 60 ? "需要复核" : "建议返修";
+  const verdict = audit.rows.length === 0 ? "暂无可审" : audit.missing === 0 && audit.maybe === 0 ? "修改已落实" : audit.missing === 0 ? "需要人工确认" : "仍需修改";
   el("verdict").textContent = verdict;
   el("scoreRing").textContent = audit.rows.length ? `${audit.score}%` : "--";
   el("scoreRing").style.background = `conic-gradient(var(--accent) ${audit.score * 3.6}deg, #eef1f3 0deg)`;
@@ -554,15 +573,15 @@ function renderAudit(audit) {
   const rows = audit.rows.filter(row => activeFilter === "all" || row.level === activeFilter);
   el("auditTable").innerHTML = `
     <div class="table-head">
-      <span>客户要求</span>
-      <span>博主是否完成</span>
-      <span>评价</span>
+      <span>上一版客户意见</span>
+      <span>落实状态</span>
+      <span>核对说明</span>
     </div>
     ${rows.length ? rows.map((row, index) => `
       <div class="table-row ${row.level}">
         <div class="requirement"><strong>${index + 1}. ${esc(row.requirement)}</strong><small>${row.source}</small></div>
-        <div><span class="status ${row.level}">${statusIcon(row.level)} ${statusText(row.level)}</span><small>${esc(row.severity || "")}</small></div>
-        <div class="comment">${esc(row.comment)}<small>Evidence: ${esc(row.evidence || "N/A")}</small></div>
+        <div><span class="status ${row.level}">${statusText(row.level)}</span></div>
+        <div class="comment">${esc(row.comment)}<small>核对依据：${esc(row.evidence || "暂无")}</small></div>
       </div>
     `).join("") : `<div class="empty">当前筛选下没有结果。</div>`}
   `;
@@ -575,10 +594,11 @@ function renderChecklist(audit) {
   };
   const riskRows = audit.rows.filter(row => row.category === "Risk");
   const firstDiff = audit.diffs[0];
+  const overallStatus = audit.missing ? "仍需修改" : audit.maybe ? "待人工确认" : "已落实";
   el("reviewChecklist").innerHTML = `
     <div class="checklist-section">
       <h3>Overall</h3>
-      <div class="overall-line"><strong>${audit.score}</strong><span>${audit.missing ? "NEED REVISION" : "PASS"}</span></div>
+      <div class="overall-line"><strong>${audit.score}</strong><span>${overallStatus}</span></div>
     </div>
     <div class="checklist-section">
       <h3>Mandatory</h3>
@@ -687,6 +707,12 @@ document.addEventListener("click", async event => {
     activeCreatorId = project().creators[0].id;
     activeView = "project";
     activeSection = "brief";
+    return renderAll();
+  }
+  if (target.classList.contains("creator-switch")) {
+    activeProjectId = target.dataset.projectId;
+    activeCreatorId = target.dataset.creatorId;
+    lastAudit = null;
     return renderAll();
   }
   if (target.classList.contains("tree-creator-btn") || target.classList.contains("tree-stage")) {
