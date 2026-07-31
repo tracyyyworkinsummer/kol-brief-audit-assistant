@@ -202,10 +202,43 @@ function setView(view) {
 
 function renderCampaignTree() {
   el("campaignTree").innerHTML = state.projects.map(p => `
-    <button class="tree-project-btn ${p.id === activeProjectId ? "active" : ""}" data-project-id="${p.id}" type="button">
-      <strong>${esc(p.name)}</strong><span>${p.creators.length} 位博主</span>
-    </button>
+    <div class="tree-project-item ${activeView === "project" && p.id === activeProjectId ? "active" : ""}">
+      <button class="tree-project-btn" data-project-id="${p.id}" type="button">
+        <span class="project-avatar">${esc(p.name.slice(0, 1).toUpperCase())}</span>
+        <span class="project-nav-copy"><strong>${esc(p.name)}</strong><small>${p.creators.length} creators</small></span>
+      </button>
+      <div class="tree-actions">
+        <button class="rename-project" data-project-id="${p.id}" type="button" title="Edit project">Edit</button>
+        <button class="delete-project" data-project-id="${p.id}" type="button" title="Delete project">Delete</button>
+      </div>
+    </div>
   `).join("");
+}
+
+function latestRoundNumber(rounds, hasContent) {
+  let latest = 0;
+  (rounds || []).forEach((round, index) => {
+    if (hasContent(round)) latest = index + 1;
+  });
+  return latest;
+}
+
+function creatorProgress(creatorItem) {
+  const scriptRound = latestRoundNumber(creatorItem.scriptRounds, round => normalize(round.scriptText) || round.scriptFile);
+  const draftRound = latestRoundNumber(creatorItem.draftRounds, round => round.videoFile);
+  const hasPost = (creatorItem.posts || []).some(post => normalize(post.caption) || normalize(post.url));
+  return [
+    { stage: "Script", round: scriptRound, status: stageStatus(creatorItem, "script") },
+    { stage: "Draft", round: draftRound, status: stageStatus(creatorItem, "draft") },
+    { stage: "Post", round: hasPost ? 1 : 0, status: stageStatus(creatorItem, "post") }
+  ];
+}
+
+function progressLabel(item) {
+  if (!item.round) return `${item.stage} · Not submitted`;
+  if (item.status === "done") return item.stage === "Post" ? "Post · Reviewed" : `${item.stage} v${item.round} · Reviewed`;
+  if (item.status === "maybe") return `${item.stage} v${item.round} · In review`;
+  return `${item.stage} v${item.round} · Needs revision`;
 }
 
 function renderOverview() {
@@ -222,21 +255,37 @@ function renderOverview() {
   }, { approved: 0, pending: 0, missing: 0 });
   el("overviewView").innerHTML = `
     <div class="overview-head">
-      <h2>Review Dashboard</h2>
-      <button id="overviewAddProject" type="button">新增项目</button>
+      <div><p class="page-eyebrow">WORKSPACE</p><h2>Project Overview</h2><p class="page-subtitle">Track every creator and review round across active campaigns.</p></div>
+      <button id="overviewAddProject" class="primary" type="button">New Project</button>
     </div>
     <div class="dashboard-grid">
-      <div><span>Pending</span><strong>${totals.pending}</strong></div>
-      <div><span>Approved</span><strong>${totals.approved}</strong></div>
-      <div><span>Need Revision</span><strong>${totals.missing}</strong></div>
-      <div><span>Average Revision</span><strong>2.1</strong></div>
+      <div><span>In Review</span><strong>${totals.pending}</strong><small>stage reviews</small></div>
+      <div><span>Reviewed</span><strong>${totals.approved}</strong><small>completed stages</small></div>
+      <div><span>Needs Revision</span><strong>${totals.missing}</strong><small>open stages</small></div>
+      <div><span>Active Projects</span><strong>${state.projects.length}</strong><small>campaign workspaces</small></div>
     </div>
     <div class="project-grid">
       ${state.projects.map(p => `
-        <button class="project-card" data-project-id="${p.id}" type="button">
-          <strong>${esc(p.name)}</strong>
-          <span>${p.creators.length} 位博主 · ${p.brief ? "已上传 Brief" : "未上传 Brief"}</span>
-        </button>
+        <article class="project-card">
+          <div class="project-card-head">
+            <button class="project-card-open" data-project-id="${p.id}" type="button">
+              <span class="project-avatar large">${esc(p.name.slice(0, 1).toUpperCase())}</span>
+              <span><strong>${esc(p.name)}</strong><small>${p.creators.length} creators · ${p.brief ? "Brief ready" : "Brief missing"}</small></span>
+            </button>
+            <div class="card-actions">
+              <button class="rename-project" data-project-id="${p.id}" type="button">Edit</button>
+              <button class="delete-project" data-project-id="${p.id}" type="button">Delete</button>
+            </div>
+          </div>
+          <div class="creator-progress-list">
+            ${p.creators.map(c => `
+              <button class="overview-creator-row" data-project-id="${p.id}" data-creator-id="${c.id}" type="button">
+                <strong>${esc(c.name)}</strong>
+                <span class="progress-tags">${creatorProgress(c).map(item => `<i class="${item.status}">${progressLabel(item)}</i>`).join("")}</span>
+              </button>
+            `).join("")}
+          </div>
+        </article>
       `).join("")}
     </div>
   `;
@@ -245,21 +294,29 @@ function renderOverview() {
 function renderProgressPanel() {
   const p = project();
   const rows = p.creators.map(c => `
-    <button class="progress-row creator-switch ${c.id === activeCreatorId ? "active" : ""}" data-project-id="${p.id}" data-creator-id="${c.id}" type="button">
-      <strong>${esc(c.name)}</strong>
-      <span class="${stageStatus(c, "script")}">Script · ${statusIcon(stageStatus(c, "script"))}</span>
-      <span class="${stageStatus(c, "draft")}">Draft · ${statusIcon(stageStatus(c, "draft"))}</span>
-      <span class="${stageStatus(c, "post")}">Post · ${statusIcon(stageStatus(c, "post"))}</span>
-    </button>
+    <div class="progress-row ${c.id === activeCreatorId ? "active" : ""}">
+      <button class="creator-switch" data-project-id="${p.id}" data-creator-id="${c.id}" type="button"><strong>${esc(c.name)}</strong><small>Open review workspace</small></button>
+      <span class="progress-tags">${creatorProgress(c).map(item => `<i class="${item.status}">${progressLabel(item)}</i>`).join("")}</span>
+      <div class="creator-actions">
+        <button class="rename-creator" data-project-id="${p.id}" data-creator-id="${c.id}" type="button">Edit</button>
+        <button class="delete-creator" data-project-id="${p.id}" data-creator-id="${c.id}" type="button">Delete</button>
+      </div>
+    </div>
   `).join("");
   el("progressPanel").innerHTML = `
     <div class="progress-title">
       <div>
+        <p class="page-eyebrow">PROJECT WORKSPACE</p>
         <h2>${esc(p.name)}</h2>
-        <p>Campaign Progress</p>
+        <p>${p.creators.length} creators · ${p.brief ? "Brief ready" : "Brief not uploaded"}</p>
       </div>
-      <button class="tree-add-creator" data-project-id="${p.id}" type="button">添加博主</button>
+      <div class="project-actions">
+        <button class="rename-project" data-project-id="${p.id}" type="button">Edit Project</button>
+        <button class="delete-project" data-project-id="${p.id}" type="button">Delete Project</button>
+        <button class="tree-add-creator primary" data-project-id="${p.id}" type="button">Add Creator</button>
+      </div>
     </div>
+    <div class="creator-list-label"><span>Creators</span><span>Review progress</span><span>Actions</span></div>
     <div class="progress-list">${rows}</div>
   `;
 }
@@ -744,10 +801,17 @@ document.addEventListener("click", async event => {
     activeProjectId = target.dataset.projectId;
     return deleteCreator(target.dataset.creatorId);
   }
-  if (target.classList.contains("project-card")) {
+  if (target.classList.contains("project-card-open")) {
     activeProjectId = target.dataset.projectId;
     activeCreatorId = project().creators[0].id;
     activeView = "project";
+    return renderAll();
+  }
+  if (target.classList.contains("overview-creator-row")) {
+    activeProjectId = target.dataset.projectId;
+    activeCreatorId = target.dataset.creatorId;
+    activeView = "project";
+    activeSection = "script";
     return renderAll();
   }
   if (target.id === "overviewAddProject" || target.id === "addProjectBtn") return addProject();

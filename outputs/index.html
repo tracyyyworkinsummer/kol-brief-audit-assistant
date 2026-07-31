@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KOL内容审核助手</title>
-  <link rel="stylesheet" href="./styles.css?v=c05ee46">
+  <link rel="stylesheet" href="./styles.css?v=modern-workspace">
 </head>
 <body>
   <main class="app">
@@ -22,10 +22,9 @@
     <section class="shell">
       <aside class="sidebar">
         <nav class="side-nav" aria-label="主导航">
-          <button class="side-tab active" data-view="overview" type="button">项目总览</button>
-          <button class="side-tab" data-view="project" type="button">内容审核</button>
+          <button class="side-tab active" data-view="overview" type="button"><span class="nav-mark">O</span>Project Overview</button>
         </nav>
-        <div class="side-head"><h2>项目</h2><button id="addProjectBtn" type="button">新增</button></div>
+        <div class="side-head"><h2>Projects</h2><button id="addProjectBtn" class="compact-action" type="button">New</button></div>
         <nav id="campaignTree" class="campaign-tree" aria-label="Campaign navigation"></nav>
       </aside>
 
@@ -77,6 +76,6 @@
       </section>
     </section>
   </main>
-  <script src="./app.js?v=c05ee46"></script>
+  <script src="./app.js?v=modern-workspace"></script>
 </body>
 </html>
