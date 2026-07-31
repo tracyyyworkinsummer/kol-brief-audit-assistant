@@ -452,7 +452,7 @@ button:hover { border-color: #9eaaa7; }
 .side-head h2 { color: #91a39d; font-size: 11px; text-transform: uppercase; }
 .compact-action { min-height: 28px; padding: 0 9px; color: #dce8e4; border-color: #40534e; background: transparent; font-size: 12px; }
 .campaign-tree { gap: 7px; }
-.tree-project-item { position: relative; border-radius: 7px; }
+.tree-project-item { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 30px; align-items: center; border-radius: 7px; }
 .tree-project-item:hover, .tree-project-item.active { background: #263632; }
 .tree-project-btn { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 9px; min-height: 58px; padding: 8px; color: #edf5f2; }
 .tree-project-item.active .tree-project-btn { background: transparent; border-color: transparent; }
@@ -474,10 +474,21 @@ button:hover { border-color: #9eaaa7; }
 .tree-project-btn .project-nav-copy { margin: 0; color: #edf5f2; }
 .tree-project-btn .project-nav-copy strong { color: #edf5f2; }
 .tree-project-btn .project-nav-copy small { color: #91a39d; }
-.tree-project-item .tree-actions { display: none; position: absolute; z-index: 2; right: 5px; top: 14px; padding: 3px; background: #fff; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 20px rgba(16,35,31,.14); }
-.tree-project-item:hover .tree-actions { display: flex; }
-.tree-project-item:hover .tree-project-btn { padding-right: 90px; }
-.tree-project-item .tree-actions button { color: var(--ink); }
+.project-menu-toggle {
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: #9bada7;
+  background: transparent;
+  font-weight: 800;
+}
+.project-menu-toggle:hover { color: #fff; background: #344741; border-color: transparent; }
+.tree-project-item .tree-actions { display: none; position: absolute; z-index: 5; right: 0; top: 50px; min-width: 118px; padding: 5px; background: #fff; border: 1px solid var(--line); border-radius: 7px; box-shadow: 0 10px 28px rgba(10,28,24,.22); }
+.tree-project-item .tree-actions.open { display: grid; gap: 3px; }
+.tree-project-item .tree-actions button { width: 100%; min-height: 32px; justify-content: flex-start; color: var(--ink); text-align: left; border: 0; background: transparent; }
+.tree-project-item .tree-actions button:hover { background: #f1f5f3; }
 .overview-head { margin-bottom: 20px; }
 .overview-head h2 { margin-top: 3px; font-size: 26px; }
 .page-eyebrow { color: var(--accent); font-size: 11px; font-weight: 800; }
@@ -539,8 +550,7 @@ button:hover { border-color: #9eaaa7; }
   .sidebar { min-height: 0; padding: 12px; }
   .workspace { padding: 14px; }
   .campaign-tree { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-  .tree-project-item .tree-actions { display: flex; position: static; margin: 0 8px 8px; background: transparent; border: 0; box-shadow: none; }
-  .tree-project-item .tree-actions button { color: #dbe6e2; border-color: #40534e; background: transparent; }
+  .tree-project-item .tree-actions { top: 48px; right: 2px; }
   .dashboard-grid { grid-template-columns: 1fr 1fr; }
   .project-grid { grid-template-columns: 1fr; }
   .project-card-head, .progress-title { align-items: flex-start; flex-direction: column; }

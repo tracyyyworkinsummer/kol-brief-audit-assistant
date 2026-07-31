@@ -10,6 +10,7 @@ let activeCreatorId = state.projects[0].creators[0].id;
 let activeSection = "brief";
 let activeFilter = "all";
 let lastAudit = null;
+let openProjectMenuId = null;
 
 function uid(prefix) {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -207,7 +208,8 @@ function renderCampaignTree() {
         <span class="project-avatar">${esc(p.name.slice(0, 1).toUpperCase())}</span>
         <span class="project-nav-copy"><strong>${esc(p.name)}</strong><small>${p.creators.length} creators</small></span>
       </button>
-      <div class="tree-actions">
+      <button class="project-menu-toggle" data-project-id="${p.id}" type="button" aria-label="Project actions" title="Project actions">...</button>
+      <div class="tree-actions ${openProjectMenuId === p.id ? "open" : ""}">
         <button class="rename-project" data-project-id="${p.id}" type="button" title="Edit project">Edit</button>
         <button class="delete-project" data-project-id="${p.id}" type="button" title="Delete project">Delete</button>
       </div>
@@ -759,7 +761,12 @@ document.addEventListener("click", async event => {
   target = target.closest("button") || target;
   if (target.classList.contains("side-tab")) return setView(target.dataset.view);
   if (target.classList.contains("section-tab")) return setSection(target.dataset.section);
+  if (target.classList.contains("project-menu-toggle")) {
+    openProjectMenuId = openProjectMenuId === target.dataset.projectId ? null : target.dataset.projectId;
+    return renderCampaignTree();
+  }
   if (target.classList.contains("tree-project-btn") || target.classList.contains("tree-brief")) {
+    openProjectMenuId = null;
     activeProjectId = target.dataset.projectId;
     activeCreatorId = project().creators[0].id;
     activeView = "project";
@@ -784,12 +791,16 @@ document.addEventListener("click", async event => {
     return addCreator();
   }
   if (target.classList.contains("rename-project")) {
+    openProjectMenuId = null;
     const treeProject = state.projects.find(item => item.id === target.dataset.projectId);
     const name = prompt("修改项目名称", treeProject.name);
     if (name) treeProject.name = name.trim();
     return renderAll();
   }
-  if (target.classList.contains("delete-project")) return deleteProject(target.dataset.projectId);
+  if (target.classList.contains("delete-project")) {
+    openProjectMenuId = null;
+    return deleteProject(target.dataset.projectId);
+  }
   if (target.classList.contains("rename-creator")) {
     activeProjectId = target.dataset.projectId;
     const treeCreator = project().creators.find(item => item.id === target.dataset.creatorId);
