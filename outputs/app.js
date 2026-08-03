@@ -11,6 +11,7 @@ let activeSection = "brief";
 let activeFilter = "all";
 let lastAudit = null;
 let openProjectMenuId = null;
+const draftPreviewUrls = new Map();
 
 function uid(prefix) {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -25,8 +26,8 @@ function defaultCreator(name = "博主 1") {
       { scriptName: "脚本二稿", scriptText: "", scriptFile: "", feedbackText: "" }
     ],
     draftRounds: [
-      { title: "视频初稿", videoFile: "", feedbackText: "" },
-      { title: "视频修改稿", videoFile: "", feedbackText: "" }
+      { title: "视频初稿", sourceType: "youtube", youtubeUrl: "", transcript: "", videoFile: "", metadata: null, feedbackText: "" },
+      { title: "视频修改稿", sourceType: "youtube", youtubeUrl: "", transcript: "", videoFile: "", metadata: null, feedbackText: "" }
     ],
     posts: [{ url: "", caption: "", source: "" }]
   };
@@ -179,7 +180,7 @@ function stageStatus(creatorItem, stage) {
   if (stage === "draft") {
     const rounds = creatorItem.draftRounds || [];
     if (rounds.some(round => normalize(round.feedbackText))) return "maybe";
-    return rounds.some(round => round.videoFile) ? "done" : "missing";
+    return rounds.some(round => round.videoFile || normalize(round.youtubeUrl)) ? "done" : "missing";
   }
   if (stage === "post") {
     return (creatorItem.posts || []).some(post => normalize(post.caption) || normalize(post.url)) ? "done" : "missing";
@@ -227,7 +228,7 @@ function latestRoundNumber(rounds, hasContent) {
 
 function creatorProgress(creatorItem) {
   const scriptRound = latestRoundNumber(creatorItem.scriptRounds, round => normalize(round.scriptText) || round.scriptFile);
-  const draftRound = latestRoundNumber(creatorItem.draftRounds, round => round.videoFile);
+  const draftRound = latestRoundNumber(creatorItem.draftRounds, round => round.videoFile || normalize(round.youtubeUrl));
   const hasPost = (creatorItem.posts || []).some(post => normalize(post.caption) || normalize(post.url));
   return [
     { stage: "Script", round: scriptRound, status: stageStatus(creatorItem, "script") },
@@ -380,33 +381,69 @@ function renderDraft() {
     </div>
     <div class="rounds">
       ${c.draftRounds.map((round, index) => `
+        ${(() => {
+          const sourceType = round.sourceType || (round.youtubeUrl ? "youtube" : "file");
+          const youtubeId = extractYouTubeId(round.youtubeUrl || "");
+          const previewUrl = draftPreviewUrls.get(`${c.id}:${index}`) || "";
+          return `
         <article class="round-card">
           <div class="round-title">
             <strong>第 ${index + 1} 轮：${esc(round.title || `视频${index + 1}稿`)}</strong>
             ${c.draftRounds.length > 1 ? `<button class="ghost remove-draft-round" data-index="${index}" type="button">删除</button>` : ""}
           </div>
           <div class="comparison-strip">${index === 0 ? "核对基准：最新确认脚本 → 视频初稿" : `核对基准：第 ${index} 轮视频反馈 → 本轮视频`}</div>
-          <div class="draft-upload">
-            <label class="file-button wide">上传视频<input class="draft-video" data-index="${index}" type="file" accept="video/*"></label>
-            <span class="file-status">${round.videoFile ? `已上传：${esc(round.videoFile)}` : "未上传视频"}</span>
+          <div class="source-switch" role="group" aria-label="Video source">
+            <button class="draft-source-mode ${sourceType === "youtube" ? "active" : ""}" data-index="${index}" data-mode="youtube" type="button">YouTube Link</button>
+            <button class="draft-source-mode ${sourceType === "file" ? "active" : ""}" data-index="${index}" data-mode="file" type="button">Source File</button>
           </div>
+          ${sourceType === "youtube" ? `
+            <div class="youtube-source-panel">
+              <label><span>YouTube private / unlisted link</span><input class="draft-youtube-url" data-index="${index}" type="url" placeholder="https://www.youtube.com/watch?v=..." value="${esc(round.youtubeUrl || "")}"></label>
+              <div class="source-actions">
+                <button class="load-youtube" data-index="${index}" type="button">Load Video</button>
+                ${round.youtubeUrl ? `<a class="external-link" href="${esc(round.youtubeUrl)}" target="_blank" rel="noopener">Open in YouTube</a>` : ""}
+              </div>
+              <p class="source-note">播放使用浏览器当前登录的 YouTube 账号；系统不会读取或保存账号密码。</p>
+              ${youtubeId ? `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${youtubeId}" title="YouTube video preview" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>` : ""}
+            </div>
+          ` : `
+            <div class="file-source-panel">
+              <div class="draft-upload">
+                <label class="file-button wide">Upload Source Video<input class="draft-video" data-index="${index}" type="file" accept="video/*"></label>
+                <span class="file-status">${round.videoFile ? `已选择：${esc(round.videoFile)}` : "支持 MP4 / MOV / WebM"}</span>
+              </div>
+              ${previewUrl ? `<video class="local-video-preview" controls src="${esc(previewUrl)}"></video>` : ""}
+            </div>
+          `}
           <div class="metadata-grid">
-            <div><span>Resolution</span><strong>${round.videoFile ? "待解析" : "-"}</strong></div>
-            <div><span>Duration</span><strong>${round.videoFile ? "待解析" : "-"}</strong></div>
-            <div><span>FPS</span><strong>${round.videoFile ? "待解析" : "-"}</strong></div>
-            <div><span>Subtitle</span><strong>${round.videoFile ? "待确认" : "-"}</strong></div>
+            <div><span>Source</span><strong>${sourceType === "youtube" ? "YouTube" : "Source File"}</strong></div>
+            <div><span>Duration</span><strong>${round.metadata?.duration || (youtubeId ? "YouTube player" : "-")}</strong></div>
+            <div><span>Resolution</span><strong>${round.metadata?.resolution || "-"}</strong></div>
+            <div><span>Transcript</span><strong>${normalize(round.transcript) ? "Ready" : "Not added"}</strong></div>
           </div>
-          <div class="review-sections">
-            <span>Visual Review</span>
-            <span>Audio Review</span>
-            <span>Subtitle Review</span>
-            <span>Brand Review</span>
-          </div>
+          <label><span>字幕 / Transcript</span><textarea class="draft-transcript" data-index="${index}" placeholder="粘贴 YouTube transcript、字幕或口播转写，用于自动核对脚本和客户反馈...">${esc(round.transcript || "")}</textarea></label>
           <label><span>客户对本版视频的反馈</span><textarea class="draft-feedback" data-index="${index}" placeholder="用于审核下一版 Draft 是否按意见修改...">${esc(round.feedbackText || "")}</textarea></label>
         </article>
+          `;
+        })()}
       `).join("")}
     </div>
   `;
+}
+
+function extractYouTubeId(url) {
+  const value = String(url || "").trim();
+  const match = value.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/i);
+  return match?.[1] || "";
+}
+
+function draftSource(round) {
+  const sourceType = round.sourceType || (round.youtubeUrl ? "youtube" : "file");
+  if (sourceType === "youtube" && normalize(round.youtubeUrl)) return { type: "YouTube", value: round.youtubeUrl };
+  if (sourceType === "file" && round.videoFile) return { type: "Source File", value: round.videoFile };
+  if (normalize(round.youtubeUrl)) return { type: "YouTube", value: round.youtubeUrl };
+  if (round.videoFile) return { type: "Source File", value: round.videoFile };
+  return null;
 }
 
 function renderPost() {
@@ -508,32 +545,47 @@ function buildDraftRows() {
   const rows = [];
   const latestScript = latestScriptText();
   const firstDraft = c.draftRounds[0];
-  if (firstDraft?.videoFile) {
+  const firstSource = firstDraft ? draftSource(firstDraft) : null;
+  if (firstSource) {
+    const transcriptMatch = normalize(firstDraft.transcript) && latestScript
+      ? directionMatch(latestScript, firstDraft.transcript) : null;
     rows.push({
       source: "Draft 1",
       requirement: "第一版 Draft 与最新确认脚本一致",
-      level: latestScript ? "maybe" : "missing",
-      severity: latestScript ? "Major" : "Critical",
+      level: !latestScript ? "missing" : transcriptMatch?.level || "maybe",
+      severity: transcriptMatch?.level === "done" ? "Pass" : latestScript ? "Major" : "Critical",
       category: "Brand",
-      evidence: firstDraft.videoFile ? `Video file: ${firstDraft.videoFile}` : "No video file",
-      comment: latestScript
-        ? `已上传 ${firstDraft.videoFile}。需人工观看视频，确认是否按最新脚本拍摄。`
-        : "尚未录入可对照的最新脚本。"
+      evidence: normalize(firstDraft.transcript)
+        ? `${firstSource.type} + transcript：${transcriptMatch?.found?.join(" / ") || "未检测到明确对应表达"}`
+        : `${firstSource.type}: ${firstSource.value}`,
+      comment: !latestScript
+        ? "尚未录入可对照的最新脚本。"
+        : transcriptMatch?.level === "done"
+          ? "视频字幕或口播与最新脚本的大方向一致；画面执行仍建议人工复核。"
+          : transcriptMatch?.level === "missing"
+            ? "视频字幕或口播未体现最新脚本的主要方向，建议返修并复核画面。"
+            : `${firstSource.type} 已就绪。当前缺少完整字幕或画面分析证据，需要人工观看确认。`
     });
   }
   for (let i = 0; i < c.draftRounds.length - 1; i += 1) {
     const feedbackItems = splitItems(c.draftRounds[i].feedbackText || "");
     const nextDraft = c.draftRounds[i + 1];
+    const nextSource = nextDraft ? draftSource(nextDraft) : null;
     feedbackItems.forEach(item => {
+      const match = normalize(nextDraft?.transcript) ? revisionMatch(item, nextDraft.transcript) : null;
       rows.push({
         source: `Draft ${i + 2}`,
         requirement: item,
-        level: nextDraft?.videoFile ? "maybe" : "missing",
-        severity: nextDraft?.videoFile ? "Major" : "Critical",
+        level: !nextSource ? "missing" : match?.level || "maybe",
+        severity: match?.level === "done" ? "Pass" : nextSource ? "Major" : "Critical",
         category: "Brand",
-        evidence: nextDraft?.videoFile ? `Video file: ${nextDraft.videoFile}` : "No next draft uploaded",
-        comment: nextDraft?.videoFile
-          ? `已上传 ${nextDraft.videoFile}。需人工观看视频确认该反馈是否已修改。`
+        evidence: match?.found?.length
+          ? `${nextSource.type} transcript：${match.found.join(" / ")}`
+          : nextSource ? `${nextSource.type}: ${nextSource.value}` : "No next draft submitted",
+        comment: match?.level === "done"
+          ? "下一版视频的字幕或口播已体现该修改意见；视觉修改仍建议人工复核。"
+          : nextSource
+            ? "下一版视频已就绪，但字幕证据不足或该意见涉及画面，需要人工观看确认。"
           : "尚未上传下一版 Draft，无法确认是否修改。"
       });
     });
@@ -846,9 +898,15 @@ document.addEventListener("click", async event => {
     return renderAll();
   }
   if (target.id === "addDraftRound") {
-    creator().draftRounds.push({ title: `视频${creator().draftRounds.length + 1}稿`, videoFile: "", feedbackText: "" });
+    creator().draftRounds.push({ title: `视频${creator().draftRounds.length + 1}稿`, sourceType: "youtube", youtubeUrl: "", transcript: "", videoFile: "", metadata: null, feedbackText: "" });
     return renderAll();
   }
+  if (target.classList.contains("draft-source-mode")) {
+    const round = creator().draftRounds[Number(target.dataset.index)];
+    round.sourceType = target.dataset.mode;
+    return renderAll();
+  }
+  if (target.classList.contains("load-youtube")) return renderAll();
   if (target.classList.contains("remove-script-round")) {
     creator().scriptRounds.splice(Number(target.dataset.index), 1);
     return renderAll();
@@ -931,7 +989,28 @@ document.addEventListener("change", async event => {
     round.scriptFile = file.name;
   }
   if (target.classList.contains("draft-video")) {
-    creator().draftRounds[Number(target.dataset.index)].videoFile = file.name;
+    const index = Number(target.dataset.index);
+    const round = creator().draftRounds[index];
+    const previewKey = `${creator().id}:${index}`;
+    const previousUrl = draftPreviewUrls.get(previewKey);
+    if (previousUrl) URL.revokeObjectURL(previousUrl);
+    const previewUrl = URL.createObjectURL(file);
+    draftPreviewUrls.set(previewKey, previewUrl);
+    round.sourceType = "file";
+    round.videoFile = file.name;
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.src = previewUrl;
+    await new Promise(resolve => {
+      video.onloadedmetadata = () => {
+        round.metadata = {
+          duration: `${Math.floor(video.duration / 60)}:${String(Math.round(video.duration % 60)).padStart(2, "0")}`,
+          resolution: `${video.videoWidth} × ${video.videoHeight}`
+        };
+        resolve();
+      };
+      video.onerror = resolve;
+    });
   }
   renderAll();
 });
@@ -944,6 +1023,12 @@ document.addEventListener("input", event => {
   if (target.classList.contains("script-text")) creator().scriptRounds[Number(target.dataset.index)].scriptText = target.value;
   if (target.classList.contains("script-feedback")) creator().scriptRounds[Number(target.dataset.index)].feedbackText = target.value;
   if (target.classList.contains("draft-feedback")) creator().draftRounds[Number(target.dataset.index)].feedbackText = target.value;
+  if (target.classList.contains("draft-youtube-url")) {
+    const round = creator().draftRounds[Number(target.dataset.index)];
+    round.sourceType = "youtube";
+    round.youtubeUrl = target.value;
+  }
+  if (target.classList.contains("draft-transcript")) creator().draftRounds[Number(target.dataset.index)].transcript = target.value;
   if (target.classList.contains("post-url")) creator().posts[Number(target.dataset.index)].url = target.value;
   if (target.classList.contains("post-caption")) creator().posts[Number(target.dataset.index)].caption = target.value;
   saveState();

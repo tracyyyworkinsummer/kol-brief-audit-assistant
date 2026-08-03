@@ -538,6 +538,37 @@ button:hover { border-color: #9eaaa7; }
 .comparison-strip { border-left: 0; border-radius: 5px; }
 .audit-actions { border-radius: 7px; }
 .result-top { border-radius: 6px; background: #f7faf9; }
+.source-switch {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  margin-bottom: 12px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #f3f6f5;
+}
+.draft-source-mode { min-height: 34px; border: 0; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
+.draft-source-mode.active { background: #fff; color: var(--accent); box-shadow: 0 1px 3px rgba(16,35,31,.12); }
+.youtube-source-panel, .file-source-panel { margin-bottom: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 7px; background: #f8faf9; }
+.source-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.external-link {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: #fff;
+  text-decoration: none;
+  font-size: 13px;
+}
+.source-note { margin-top: 9px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.video-frame { position: relative; margin-top: 12px; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 7px; background: #111; }
+.video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.local-video-preview { display: block; width: 100%; margin-top: 12px; aspect-ratio: 16 / 9; border-radius: 7px; background: #111; object-fit: contain; }
+.draft-transcript { min-height: 150px; }
 
 @media (max-width: 1040px) {
   .shell { grid-template-columns: 210px minmax(0, 1fr); }
@@ -556,4 +587,7 @@ button:hover { border-color: #9eaaa7; }
   .project-card-head, .progress-title { align-items: flex-start; flex-direction: column; }
   .overview-creator-row, .creator-list-label, .progress-row { grid-template-columns: 1fr; }
   .creator-list-label { display: none; }
+  .source-switch { width: 100%; }
+  .source-actions { align-items: stretch; flex-direction: column; }
+  .source-actions > * { justify-content: center; width: 100%; }
 }
