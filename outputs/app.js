@@ -374,6 +374,7 @@ function renderScript() {
 
 function renderDraft() {
   const c = creator();
+  const firstDraftReference = latestScriptText() ? "最新确认脚本" : "项目 Brief";
   el("draftSection").innerHTML = `
     <div class="section-head">
       <div><h2>Draft</h2><p class="section-purpose">视频初稿对照最新脚本；修改稿逐条对照上一版视频反馈。</p></div>
@@ -391,7 +392,7 @@ function renderDraft() {
             <strong>第 ${index + 1} 轮：${esc(round.title || `视频${index + 1}稿`)}</strong>
             ${c.draftRounds.length > 1 ? `<button class="ghost remove-draft-round" data-index="${index}" type="button">删除</button>` : ""}
           </div>
-          <div class="comparison-strip">${index === 0 ? "核对基准：最新确认脚本 → 视频初稿" : `核对基准：第 ${index} 轮视频反馈 → 本轮视频`}</div>
+          <div class="comparison-strip">${index === 0 ? `核对基准：${firstDraftReference} → 视频初稿` : `核对基准：第 ${index} 轮视频反馈 → 本轮视频`}</div>
           <div class="source-switch" role="group" aria-label="Video source">
             <button class="draft-source-mode ${sourceType === "youtube" ? "active" : ""}" data-index="${index}" data-mode="youtube" type="button">YouTube Link</button>
             <button class="draft-source-mode ${sourceType === "file" ? "active" : ""}" data-index="${index}" data-mode="file" type="button">Source File</button>
@@ -421,7 +422,8 @@ function renderDraft() {
             <div><span>Resolution</span><strong>${round.metadata?.resolution || "-"}</strong></div>
             <div><span>Transcript</span><strong>${normalize(round.transcript) ? "Ready" : "Not added"}</strong></div>
           </div>
-          <label><span>字幕 / Transcript</span><textarea class="draft-transcript" data-index="${index}" placeholder="粘贴 YouTube transcript、字幕或口播转写，用于自动核对脚本和客户反馈...">${esc(round.transcript || "")}</textarea></label>
+          <label><span>字幕 / Transcript</span><textarea class="draft-transcript" data-index="${index}" placeholder="粘贴字幕或口播转写。建议每段带时间码，例如：[00:00] 开场介绍...">${esc(round.transcript || "")}</textarea></label>
+          <p class="source-note">带时间码的 Transcript 会自动生成视频内容分段和时间轴；无脚本时将直接与项目 Brief 核对。</p>
           <label><span>客户对本版视频的反馈</span><textarea class="draft-feedback" data-index="${index}" placeholder="用于审核下一版 Draft 是否按意见修改...">${esc(round.feedbackText || "")}</textarea></label>
         </article>
           `;
@@ -540,31 +542,78 @@ function buildScriptRows() {
   return rows;
 }
 
+function timecodeToSeconds(value) {
+  const parts = String(value || "").split(":").map(Number);
+  if (parts.some(Number.isNaN)) return null;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return null;
+}
+
+function formatTimecode(seconds) {
+  if (!Number.isFinite(seconds)) return "Time pending";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  return hours
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+    : `${minutes}:${String(secs).padStart(2, "0")}`;
+}
+
+function buildVideoOutline(round) {
+  const transcript = String(round?.transcript || "").trim();
+  if (!transcript) return [];
+  const cues = transcript.split(/\n+/).map(line => {
+    const match = line.match(/^\s*\[?((?:\d{1,2}:)?\d{1,2}:\d{2})\]?\s*(?:-|–|—)?\s*(.+)$/);
+    return match ? { seconds: timecodeToSeconds(match[1]), text: match[2].trim() } : null;
+  }).filter(Boolean);
+  const rawSections = cues.length
+    ? cues
+    : splitItems(transcript).map(text => ({ seconds: null, text }));
+  if (!rawSections.length) return [];
+  const targetCount = Math.min(6, Math.max(1, Math.ceil(rawSections.length / 3)));
+  const groupSize = Math.ceil(rawSections.length / targetCount);
+  const groups = [];
+  for (let i = 0; i < rawSections.length; i += groupSize) groups.push(rawSections.slice(i, i + groupSize));
+  return groups.map((group, index) => {
+    const text = group.map(item => item.text).join(" ").replace(/\s+/g, " ").trim();
+    const nextGroup = groups[index + 1];
+    return {
+      start: formatTimecode(group[0].seconds),
+      end: nextGroup?.[0]?.seconds != null ? formatTimecode(nextGroup[0].seconds) : "End",
+      title: `Part ${index + 1}`,
+      summary: text.length > 120 ? `${text.slice(0, 120)}...` : text
+    };
+  });
+}
+
 function buildDraftRows() {
   const c = creator();
   const rows = [];
   const latestScript = latestScriptText();
+  const reviewReference = latestScript || project().brief;
+  const referenceName = latestScript ? "最新确认脚本" : "项目 Brief";
   const firstDraft = c.draftRounds[0];
   const firstSource = firstDraft ? draftSource(firstDraft) : null;
   if (firstSource) {
-    const transcriptMatch = normalize(firstDraft.transcript) && latestScript
-      ? directionMatch(latestScript, firstDraft.transcript) : null;
+    const transcriptMatch = normalize(firstDraft.transcript) && reviewReference
+      ? directionMatch(reviewReference, firstDraft.transcript) : null;
     rows.push({
       source: "Draft 1",
-      requirement: "第一版 Draft 与最新确认脚本一致",
-      level: !latestScript ? "missing" : transcriptMatch?.level || "maybe",
-      severity: transcriptMatch?.level === "done" ? "Pass" : latestScript ? "Major" : "Critical",
+      requirement: `第一版 Draft 与${referenceName}的大方向一致`,
+      level: !reviewReference ? "missing" : transcriptMatch?.level || "maybe",
+      severity: transcriptMatch?.level === "done" ? "Pass" : reviewReference ? "Major" : "Critical",
       category: "Brand",
       evidence: normalize(firstDraft.transcript)
         ? `${firstSource.type} + transcript：${transcriptMatch?.found?.join(" / ") || "未检测到明确对应表达"}`
         : `${firstSource.type}: ${firstSource.value}`,
-      comment: !latestScript
-        ? "尚未录入可对照的最新脚本。"
+      comment: !reviewReference
+        ? "尚未录入可对照的脚本或项目 Brief。"
         : transcriptMatch?.level === "done"
-          ? "视频字幕或口播与最新脚本的大方向一致；画面执行仍建议人工复核。"
+          ? `视频字幕或口播与${referenceName}的大方向一致；画面执行仍建议人工复核。`
           : transcriptMatch?.level === "missing"
-            ? "视频字幕或口播未体现最新脚本的主要方向，建议返修并复核画面。"
-            : `${firstSource.type} 已就绪。当前缺少完整字幕或画面分析证据，需要人工观看确认。`
+            ? `视频字幕或口播未体现${referenceName}的主要方向，建议返修并复核画面。`
+            : `${firstSource.type} 已就绪。当前缺少完整字幕或画面分析证据，需要人工观看并参照${referenceName}确认。`
     });
   }
   for (let i = 0; i < c.draftRounds.length - 1; i += 1) {
@@ -647,7 +696,10 @@ function buildAudit() {
   const maybe = rows.filter(row => row.level === "maybe").length;
   const missing = rows.filter(row => row.level === "missing").length;
   const score = rows.length ? Math.round(((done + maybe * 0.4) / rows.length) * 100) : 0;
-  return { rows, diffs, done, maybe, missing, score };
+  const outlines = activeSection === "draft"
+    ? creator().draftRounds.map((round, index) => ({ round: index + 1, sections: buildVideoOutline(round) })).filter(item => item.sections.length)
+    : [];
+  return { rows, diffs, outlines, done, maybe, missing, score };
 }
 
 function buildDiffRows() {
@@ -728,6 +780,15 @@ function renderChecklist(audit) {
       <p>Fixed: ${esc(firstDiff.fixed.slice(0, 3).join(" / ") || "-")}</p>
       <p>Still Missing: ${esc(firstDiff.stillMissing.slice(0, 3).join(" / ") || "-")}</p>
     </div>` : ""}
+    ${(audit.outlines || []).map(outline => `<div class="checklist-section diff-box video-outline">
+      <div class="outline-head"><h3>Draft v${outline.round} · Video Content Map</h3><span>${outline.sections.length} parts</span></div>
+      <div class="outline-list">${outline.sections.map(section => `
+        <div class="outline-item">
+          <time>${esc(section.start)}${section.end !== "End" ? `–${esc(section.end)}` : "+"}</time>
+          <div><strong>${esc(section.title)}</strong><p>${esc(section.summary)}</p></div>
+        </div>
+      `).join("")}</div>
+    </div>`).join("")}
   `;
 }
 
